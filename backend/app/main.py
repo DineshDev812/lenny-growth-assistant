@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.artifacts import router as artifacts_router
 from app.api.health import router as health_router
 from app.api.ingest import router as ingest_router
 from app.api.messages import router as messages_router
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     application.include_router(health_router)
     application.include_router(sessions_router)
     application.include_router(messages_router)
+    application.include_router(artifacts_router)
     application.include_router(ingest_router)
     application.include_router(search_router)
     return application

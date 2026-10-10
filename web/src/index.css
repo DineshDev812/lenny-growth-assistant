@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans bg-[#FBF9F5] text-stone-900 selection:bg-lenny-200 selection:text-lenny-900;
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(160, 150, 140, 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 150, 140, 0.5);
+}
+
+/* Prose styles for rendered Markdown */
+.prose-lenny {
+  line-height: 1.65;
+  color: #292524;
+}
+.prose-lenny h1 {
+  font-size: 1.65rem;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: #1c1917;
+}
+.prose-lenny h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin-top: 1.2rem;
+  margin-bottom: 0.6rem;
+  color: #1c1917;
+}
+.prose-lenny h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #292524;
+}
+.prose-lenny p {
+  margin-bottom: 0.85rem;
+}
+.prose-lenny ul {
+  list-style-type: disc;
+  padding-left: 1.4rem;
+  margin-bottom: 0.85rem;
+}
+.prose-lenny ol {
+  list-style-type: decimal;
+  padding-left: 1.4rem;
+  margin-bottom: 0.85rem;
+}
+.prose-lenny li {
+  margin-bottom: 0.35rem;
+}
+.prose-lenny blockquote {
+  border-left: 3px solid #d5a168;
+  padding-left: 0.9rem;
+  font-style: italic;
+  color: #57534e;
+  margin: 0.85rem 0;
+}
+.prose-lenny code {
+  background: #f5f0e8;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.prose-lenny pre {
+  background: #1e1e1e;
+  color: #f3f4f6;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.85rem 0;
+}
+.prose-lenny pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}

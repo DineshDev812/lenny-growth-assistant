@@ -1,7 +1,5 @@
 from fastapi.testclient import TestClient
 
-from app.services.messages import PLACEHOLDER_ASSISTANT_CONTENT
-
 
 def test_create_and_list_sessions(client: TestClient) -> None:
     created = client.post(
@@ -81,7 +79,7 @@ def test_validation_errors(client: TestClient) -> None:
     assert bad_id.json()["error"]["code"] == "validation_error"
 
 
-def test_message_persistence_and_placeholder(client: TestClient) -> None:
+def test_message_persistence_and_response(client: TestClient) -> None:
     created = client.post("/api/sessions", json={})
     session_id = created.json()["id"]
 
@@ -94,8 +92,7 @@ def test_message_persistence_and_placeholder(client: TestClient) -> None:
     assert payload["user_message"]["role"] == "user"
     assert payload["user_message"]["content"] == "What is product-led growth?"
     assert payload["assistant_message"]["role"] == "assistant"
-    assert "[PLACEHOLDER]" in payload["assistant_message"]["content"]
-    assert payload["assistant_message"]["content"] == PLACEHOLDER_ASSISTANT_CONTENT
+    assert len(payload["assistant_message"]["content"]) > 0
     assert payload["assistant_message"]["provider"]
     assert payload["assistant_message"]["model"]
 
@@ -105,7 +102,7 @@ def test_message_persistence_and_placeholder(client: TestClient) -> None:
     assert detail["title"] == "What is product-led growth?"
     assert len(detail["messages"]) == 2
     assert detail["messages"][0]["content"] == "What is product-led growth?"
-    assert detail["messages"][1]["content"] == PLACEHOLDER_ASSISTANT_CONTENT
+    assert detail["messages"][1]["content"] == payload["assistant_message"]["content"]
 
     second = client.post(
         f"/api/sessions/{session_id}/messages",
@@ -135,9 +132,61 @@ def test_messages_ordered_by_monotonic_seq(client: TestClient) -> None:
     seqs = [m["seq"] for m in messages if m.get("seq") is not None]
     assert len(seqs) == 6
     assert seqs == sorted(seqs)
-    expected_contents = [
-        "Message 0", PLACEHOLDER_ASSISTANT_CONTENT,
-        "Message 1", PLACEHOLDER_ASSISTANT_CONTENT,
-        "Message 2", PLACEHOLDER_ASSISTANT_CONTENT,
-    ]
-    assert [m["content"] for m in messages] == expected_contents
+
+
+def test_session_rename(client: TestClient) -> None:
+    created = client.post("/api/sessions", json={})
+    session_id = created.json()["id"]
+
+    renamed = client.patch(f"/api/sessions/{session_id}", json={"title": "Updated Title"})
+    assert renamed.status_code == 200
+    assert renamed.json()["title"] == "Updated Title"
+
+    got = client.get(f"/api/sessions/{session_id}")
+    assert got.json()["title"] == "Updated Title"
+
+
+def test_streaming_sse_messages(client: TestClient) -> None:
+    created = client.post("/api/sessions", json={})
+    session_id = created.json()["id"]
+
+    res = client.post(
+        f"/api/sessions/{session_id}/messages",
+        json={"content": "What is activation?"},
+        headers={"Accept": "text/event-stream"},
+    )
+    assert res.status_code == 200
+    assert "text/event-stream" in res.headers["content-type"]
+    text = res.text
+    assert "event: start" in text
+    assert "event: sources" in text
+    assert "event: token" in text
+    assert "event: done" in text
+
+
+def test_essay_and_artifact_flow(client: TestClient) -> None:
+    created = client.post("/api/sessions", json={})
+    session_id = created.json()["id"]
+
+    res = client.post(
+        f"/api/sessions/{session_id}/messages",
+        json={"content": "Write a ship 30 essay on retention", "intent": "essay"},
+    )
+    assert res.status_code == 201
+    payload = res.json()
+    assert payload["artifact"] is not None
+    art_id = payload["artifact"]["id"]
+    assert payload["artifact"]["format"] == "markdown"
+
+    art_res = client.get(f"/api/artifacts/{art_id}")
+    assert art_res.status_code == 200
+    art = art_res.json()
+    assert art["id"] == art_id
+    assert art["format"] == "markdown"
+    assert len(art["content"]) > 0
+
+    # Test artifact isolation: unauthorized client gets 404
+    client.cookies.clear()
+    denied = client.get(f"/api/artifacts/{art_id}")
+    assert denied.status_code == 404
+    assert denied.json()["error"]["code"] == "not_found"

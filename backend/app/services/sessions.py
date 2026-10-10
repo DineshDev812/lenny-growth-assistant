@@ -32,3 +32,7 @@ class SessionService:
         if session is None:
             raise NotFoundError("Session not found.")
         return session
+
+    async def rename(self, session_id: UUID, client_id: UUID, title: str) -> Session:
+        session = await self.get_owned(session_id, client_id)
+        return await self._sessions.touch(session, title=title.strip())

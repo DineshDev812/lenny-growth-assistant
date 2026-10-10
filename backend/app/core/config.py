@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = Field(default=60, ge=0)
     retrieval_min_score: float = Field(default=0.03, ge=0.0)
     retrieval_fallback_min_score: float = Field(default=0.12, ge=0.0)
+    llm_timeout: float = Field(default=180.0, ge=10.0)
 
     @field_validator("anthropic_api_key", "ingest_token", mode="before")
     @classmethod

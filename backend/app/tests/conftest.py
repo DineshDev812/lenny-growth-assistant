@@ -21,11 +21,21 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool  # noqa: E402
 
 from app.core.config import Settings, get_settings  # noqa: E402
+from app.llm.factory import set_test_llm_provider  # noqa: E402
+from app.llm.fake import FakeLLMProvider  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services.ingestion import IngestRunner  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "transcripts"
+
+
+@pytest.fixture(autouse=True)
+def setup_fake_llm() -> Iterator[FakeLLMProvider]:
+    fake = FakeLLMProvider()
+    set_test_llm_provider(fake)
+    yield fake
+    set_test_llm_provider(None)
 
 
 @pytest.fixture
