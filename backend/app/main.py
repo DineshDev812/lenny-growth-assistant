@@ -5,19 +5,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.health import router as health_router
+from app.api.ingest import router as ingest_router
 from app.api.messages import router as messages_router
+from app.api.search import router as search_router
 from app.api.sessions import router as sessions_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import setup_logging
 from app.core.middleware import ClientIdMiddleware, RequestContextMiddleware
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
+from app.services.ingestion import IngestRunner
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    setup_logging(get_settings().log_level)
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    setup_logging(settings.log_level)
+    runner = IngestRunner(SessionLocal, settings)
+    app.state.ingest_runner = runner
+    if settings.ingest_on_startup:
+        # Background task: the API answers /health immediately while ingestion runs.
+        runner.start("startup")
     yield
+    await runner.shutdown()
     await engine.dispose()
 
 
@@ -39,6 +49,8 @@ def create_app() -> FastAPI:
     application.include_router(health_router)
     application.include_router(sessions_router)
     application.include_router(messages_router)
+    application.include_router(ingest_router)
+    application.include_router(search_router)
     return application
 
 
