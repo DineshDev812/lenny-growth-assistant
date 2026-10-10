@@ -115,3 +115,29 @@ def test_message_persistence_and_placeholder(client: TestClient) -> None:
     persisted = client.get(f"/api/sessions/{session_id}")
     assert len(persisted.json()["messages"]) == 4
     assert persisted.json()["title"] == "What is product-led growth?"
+
+
+def test_messages_ordered_by_monotonic_seq(client: TestClient) -> None:
+    created = client.post("/api/sessions", json={})
+    session_id = created.json()["id"]
+
+    for i in range(3):
+        res = client.post(
+            f"/api/sessions/{session_id}/messages",
+            json={"content": f"Message {i}"},
+        )
+        assert res.status_code == 201
+
+    res = client.get(f"/api/sessions/{session_id}")
+    assert res.status_code == 200
+    messages = res.json()["messages"]
+    assert len(messages) == 6
+    seqs = [m["seq"] for m in messages if m.get("seq") is not None]
+    assert len(seqs) == 6
+    assert seqs == sorted(seqs)
+    expected_contents = [
+        "Message 0", PLACEHOLDER_ASSISTANT_CONTENT,
+        "Message 1", PLACEHOLDER_ASSISTANT_CONTENT,
+        "Message 2", PLACEHOLDER_ASSISTANT_CONTENT,
+    ]
+    assert [m["content"] for m in messages] == expected_contents

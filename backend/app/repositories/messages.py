@@ -1,6 +1,7 @@
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Message
@@ -32,3 +33,11 @@ class MessageRepository:
         await self._db.flush()
         await self._db.refresh(message)
         return message
+
+    async def list_for_session(self, session_id: UUID) -> list[Message]:
+        result = await self._db.execute(
+            select(Message)
+            .where(Message.session_id == session_id)
+            .order_by(Message.created_at.asc(), Message.seq.asc())
+        )
+        return list(result.scalars().all())

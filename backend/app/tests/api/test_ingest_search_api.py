@@ -105,3 +105,30 @@ async def test_search_validates_k(api: AsyncClient) -> None:
     response = await api.get("/api/search", params={"q": "activation", "k": 0})
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "validation_error"
+
+
+async def test_post_ingest_conflict_when_already_running(api: AsyncClient) -> None:
+    app.state.ingest_runner._state.state = "running"
+    try:
+        response = await api.post("/api/ingest")
+        assert response.status_code == 409
+        body = response.json()
+        assert body["error"]["code"] == "ingest_in_progress"
+        assert body["error"]["request_id"]
+    finally:
+        app.state.ingest_runner._state.state = "idle"
+
+
+async def test_search_by_guest_and_keywords(api: AsyncClient) -> None:
+    await api.post("/api/ingest", params={"wait": "true"})
+    # Guest name search
+    by_guest = await api.get("/api/search", params={"q": "Ada Activation"})
+    assert by_guest.status_code == 200
+    assert len(by_guest.json()["results"]) >= 1
+    assert by_guest.json()["results"][0]["episode_slug"] == "activation-expert"
+
+    # Keywords search
+    by_kw = await api.get("/api/search", params={"q": "aha moment"})
+    assert by_kw.status_code == 200
+    assert len(by_kw.json()["results"]) >= 1
+    assert by_kw.json()["results"][0]["episode_slug"] == "activation-expert"

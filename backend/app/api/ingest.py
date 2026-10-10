@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 
 from app.api.deps import get_ingest_runner
 from app.core.config import get_settings
-from app.core.exceptions import UnauthorizedError
+from app.core.exceptions import IngestInProgressError, UnauthorizedError
 from app.schemas.ingest import IngestStatusResponse
 from app.services.ingestion import IngestRunner
 
@@ -29,7 +29,9 @@ async def trigger_ingest(
 ) -> IngestStatusResponse:
     """Re-ingest transcripts (idempotent: unchanged files are skipped)."""
     _check_token(x_ingest_token)
-    runner.start("manual")
+    started = runner.start("manual")
+    if not started:
+        raise IngestInProgressError()
     if wait:
         await runner.wait()
         response.status_code = 200

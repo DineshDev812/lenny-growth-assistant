@@ -62,8 +62,8 @@ def discover_transcripts(root: Path) -> dict[str, Path]:
 
 
 def hash_content(raw: bytes, *, settings: Settings) -> str:
-    """Hash file bytes plus chunking settings, so changing chunk sizes re-indexes everything."""
-    salt = f"v1:{settings.chunk_target_tokens}:{settings.chunk_max_tokens}:{settings.chunk_overlap_tokens}\n"
+    """Hash file bytes plus chunking settings, so changing chunk sizes or schema re-indexes everything."""
+    salt = f"v2:{settings.chunk_target_tokens}:{settings.chunk_max_tokens}:{settings.chunk_overlap_tokens}\n"
     return hashlib.sha256(salt.encode() + raw).hexdigest()
 
 
@@ -259,6 +259,8 @@ class IngestRunner:
             max_tokens=self._settings.chunk_max_tokens,
             overlap_tokens=self._settings.chunk_overlap_tokens,
         )
+        kw_text = " ".join(parsed.keywords)
+        header = " ".join(part for part in [parsed.title, parsed.guest, kw_text] if part).strip()
         chunk_rows = [
             {
                 "chunk_index": draft.chunk_index,
@@ -266,6 +268,7 @@ class IngestRunner:
                 "speaker": draft.speaker,
                 "start_seconds": draft.start_seconds,
                 "token_count": draft.token_count,
+                "header": header,
             }
             for draft in drafts
         ]
@@ -285,6 +288,7 @@ class IngestRunner:
                     description=parsed.description,
                     source_path=relative,
                     content_hash=digest,
+                    keywords=parsed.keywords,
                     chunks=chunk_rows,
                 )
         stats.episodes_ingested += 1

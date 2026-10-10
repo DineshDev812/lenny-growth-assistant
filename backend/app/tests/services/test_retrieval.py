@@ -99,3 +99,12 @@ def test_build_deep_link() -> None:
 def test_extract_terms_only_returns_safe_tokens() -> None:
     assert extract_terms("How do I fix B2B onboarding? ('; DROP)") == ["how", "do", "fix", "b2b", "onboarding", "drop"]
     assert extract_terms("a ! & |") == []
+
+
+async def test_retrieval_matches_guest_and_keywords(retrieval) -> None:
+    by_guest = await retrieval.retrieve("Ada Activation")
+    assert by_guest and by_guest[0].episode_slug == "activation-expert"
+    assert by_guest[0].guest == "Ada Activation"
+
+    by_keyword = await retrieval.retrieve("aha moment")
+    assert by_keyword and by_keyword[0].episode_slug == "activation-expert"
