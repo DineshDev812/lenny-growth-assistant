@@ -19,6 +19,21 @@ MAX_K = 50
 MAX_OR_TERMS = 16
 _WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
 
+COMMON_STOPWORDS = {
+    "a", "an", "the", "and", "or", "but", "if", "because", "as", "what", "which", "who", "whom",
+    "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "having", "do", "does", "did", "doing", "would", "should", "could",
+    "ought", "i", "you", "he", "she", "it", "we", "they", "them", "their", "theirs", "our",
+    "ours", "your", "yours", "my", "mine", "his", "her", "hers", "its", "for", "with", "about",
+    "against", "between", "into", "through", "during", "before", "after", "above", "below", "to",
+    "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then",
+    "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few",
+    "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so",
+    "than", "too", "very", "can", "will", "just", "dont", "shouldnt", "cant",
+    "without", "conduct", "employed", "using", "use", "used", "make", "made",
+    "by", "of",
+}
+
 
 def build_deep_link(youtube_url: str | None, start_seconds: int | None) -> str | None:
     if not youtube_url:
@@ -87,6 +102,18 @@ class RetrievalService:
                 terms, min_score=self._fallback_min_score, limit=limit
             )
             mode = "or_fallback"
+            if rows:
+                informative_terms = [t for t in terms if t.lower() not in COMMON_STOPWORDS]
+                num_info = len(informative_terms)
+                if num_info >= 5:
+                    min_matches = max(3, int(num_info * 0.50))
+                    filtered_rows = []
+                    for row in rows:
+                        searchable = f"{row.text} {row.episode_title} {row.guest}".lower()
+                        match_count = sum(1 for t in informative_terms if t.lower() in searchable)
+                        if match_count >= min_matches:
+                            filtered_rows.append(row)
+                    rows = filtered_rows
         logger.info(
             "Retrieval %s returned %d chunks" % (mode, len(rows)),
             extra={"event": "retrieval", "retrieval_hits": len(rows)},

@@ -20,6 +20,8 @@ class MessageRepository:
         sources: list[Any] | None = None,
         provider: str | None = None,
         model: str | None = None,
+        intent: str | None = None,
+        error_class: str | None = None,
     ) -> Message:
         message = Message(
             session_id=session_id,
@@ -28,15 +30,18 @@ class MessageRepository:
             sources=sources if sources is not None else [],
             provider=provider,
             model=model,
+            intent=intent,
+            error_class=error_class,
         )
         self._db.add(message)
         await self._db.flush()
-        await self._db.refresh(message)
+        message.artifact = None
         return message
 
     async def list_for_session(self, session_id: UUID) -> list[Message]:
         result = await self._db.execute(
             select(Message)
+            .options(selectinload(Message.artifact))
             .where(Message.session_id == session_id)
             .order_by(Message.created_at.asc(), Message.seq.asc())
         )

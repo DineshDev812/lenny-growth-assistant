@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.db.models import Session
+from app.db.models import Message, Session
 
 
 class SessionRepository:
@@ -37,7 +37,7 @@ class SessionRepository:
     async def get_owned(self, session_id: UUID, client_id: UUID) -> Session | None:
         result = await self._db.execute(
             select(Session)
-            .options(selectinload(Session.messages))
+            .options(selectinload(Session.messages).selectinload(Message.artifact))
             .where(Session.id == session_id, Session.client_id == client_id)
         )
         return result.scalar_one_or_none()

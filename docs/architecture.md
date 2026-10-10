@@ -39,63 +39,64 @@ No `users` table. Identity is the session cookie.
 
 | Column | Type | Notes |
 |--------|------|--------|
-| `id` | uuid PK | |
+| `id` | uuid PK | UUIDv4 |
 | `session_id` | uuid FK | on delete cascade |
-| `role` | text | `user` \| `assistant` \| `system` |
-| `content` | text | Full assistant text after stream |
-| `provider` | text | `anthropic` \| `ollama` |
-| `model` | text | Value of `ANTHROPIC_MODEL` or `qwen2.5:3b` |
-| `citations` | jsonb | `[{episode_id, title, guest, youtube_url, publish_date, chunk_ids[]}]` |
-| `artifact` | jsonb null | `{id, format, title}` if this turn produced one |
+| `seq` | bigint identity | Monotonically increasing sequence `Identity(start=1)` |
+| `role` | text | `user` \| `assistant` |
+| `content` | text | Full assistant/user text |
+| `sources` | jsonb | `[{id, chunk_id, episode_id, slug, title, guest, youtube_url, youtube_deep_link, start_ts, start_seconds, snippet}]` |
+| `provider` | text null | `ollama` \| `anthropic` |
+| `model` | text null | `qwen2.5:3b` \| `claude-sonnet-4-5` |
+| `intent` | text null | `qa` \| `essay` \| `artifact` |
 | `error_class` | text null | `provider_unconfigured`, `timeout`, … |
-| `created_at` | timestamptz | |
+| `created_at` | timestamptz | Server timestamp `func.now()` |
+
+*Deterministic read order*: `ORDER BY created_at ASC, seq ASC`.
 
 ### `artifacts`
 
 | Column | Type | Notes |
 |--------|------|--------|
-| `id` | uuid PK | |
-| `session_id` | uuid FK | |
-| `message_id` | uuid FK | |
+| `id` | uuid PK | UUIDv4 |
+| `session_id` | uuid FK | on delete cascade |
+| `message_id` | uuid FK | on delete cascade, unique |
+| `client_id` | uuid | Ownership check |
 | `format` | text | `markdown` \| `html` |
-| `title` | text | |
-| `content` | text | Untrusted if html |
-| `created_at` | timestamptz | |
+| `title` | text | Extracted or default title |
+| `content` | text | Sanitized HTML or Markdown content |
+| `created_at` | timestamptz | Server timestamp `func.now()` |
 
 ### `episodes`
 
 | Column | Type | Notes |
 |--------|------|--------|
-| `id` | uuid PK | |
-| `slug` | text unique | Folder name, e.g. `noah-weiss` |
-| `guest` | text | From frontmatter |
-| `title` | text | Fallback: guest or slug |
-| `youtube_url` | text null | |
-| `video_id` | text null | |
-| `publish_date` | date null | |
-| `description` | text null | |
-| `duration_seconds` | double null | |
-| `duration` | text null | |
-| `view_count` | int null | |
-| `channel` | text null | |
-| `keywords` | text[] | Frontmatter list |
-| `source_path` | text | Relative path for re-ingest |
-| `content_hash` | text | Skip unchanged files |
+| `id` | uuid PK | UUIDv4 |
+| `slug` | text unique | Folder name, e.g. `lauryn-isford` |
+| `guest` | text | From frontmatter (fallback: slug) |
+| `title` | text | From frontmatter (fallback: guest) |
+| `youtube_url` | text null | Video URL |
+| `video_id` | text null | YouTube video ID |
+| `publish_date` | date null | Published date |
+| `description` | text null | Episode description |
+| `source_path` | text | Path for re-ingest |
+| `content_hash` | text | SHA256 of source file |
+| `keywords` | jsonb | Frontmatter keywords list |
+| `ingested_at` | timestamptz | Server timestamp |
 
 ### `chunks`
 
 | Column | Type | Notes |
 |--------|------|--------|
-| `id` | uuid PK | |
-| `episode_id` | uuid FK | |
-| `ordinal` | int | Order in episode |
-| `speaker` | text null | If parseable from `Name (hh:mm:ss):` |
-| `start_ts` | text null | Timestamp string |
-| `body` | text | Chunk text |
-| `search_vector` | tsvector | Weighted: guest/title/keywords + body |
-| `token_estimate` | int | For packing context |
+| `id` | uuid PK | UUIDv4 |
+| `episode_id` | uuid FK | on delete cascade |
+| `chunk_index` | int | Sequence order in episode |
+| `speaker` | text null | Turn speaker |
+| `start_seconds` | int null | Start time in seconds |
+| `text` | text | Chunk text body |
+| `header` | text | Concatenated `title + guest + keywords` for search |
+| `tsv` | tsvector | `GENERATED ALWAYS AS (setweight(to_tsvector('english', header), 'A') \|\| setweight(to_tsvector('english', text), 'B')) STORED` |
 
-Indexes: GIN on `chunks.search_vector`; btree on `chunks.episode_id`, `messages.session_id`, `sessions.updated_at`.
+Indexes: GIN on `chunks.tsv`; btree on `(session_id, created_at, seq)`, `episodes.slug`, `chunks.episode_id`.
 
 ## 3. API endpoints
 

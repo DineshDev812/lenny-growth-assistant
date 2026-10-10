@@ -42,11 +42,19 @@ class Message(Base):
     )
     provider: Mapped[str | None] = mapped_column(Text, nullable=True)
     model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    intent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_class: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
     session: Mapped[Session] = relationship(back_populates="messages")
+    artifact: Mapped[Artifact | None] = relationship(
+        back_populates="message",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         Index("ix_messages_session_id", "session_id"),
@@ -75,8 +83,39 @@ class Session(Base):
         cascade="all, delete-orphan",
         order_by=(Message.created_at, Message.seq),
     )
+    artifacts: Mapped[list[Artifact]] = relationship(
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (Index("ix_sessions_client_id", "client_id"),)
+
+
+class Artifact(Base):
+    __tablename__ = "artifacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    client_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    format: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    message: Mapped[Message] = relationship(back_populates="artifact")
+    session: Mapped[Session] = relationship(back_populates="artifacts")
+
+    __table_args__ = (
+        Index("ix_artifacts_session_id", "session_id"),
+        Index("ix_artifacts_client_id", "client_id"),
+    )
 
 
 class Episode(Base):
