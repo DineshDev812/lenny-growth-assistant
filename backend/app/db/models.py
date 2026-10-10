@@ -1,11 +1,23 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Index, Text, Uuid, func, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    Computed,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    func,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -57,3 +69,56 @@ class Message(Base):
     session: Mapped[Session] = relationship(back_populates="messages")
 
     __table_args__ = (Index("ix_messages_session_id", "session_id"),)
+
+
+class Episode(Base):
+    __tablename__ = "episodes"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(Text, nullable=False)
+    guest: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    youtube_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    video_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    publish_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_path: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    ingested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    chunks: Mapped[list[Chunk]] = relationship(
+        back_populates="episode",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Chunk.chunk_index",
+    )
+
+    __table_args__ = (UniqueConstraint("slug", name="uq_episodes_slug"),)
+
+
+class Chunk(Base):
+    __tablename__ = "chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    episode_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("episodes.id", ondelete="CASCADE"), nullable=False
+    )
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    speaker: Mapped[str | None] = mapped_column(Text, nullable=True)
+    start_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    tsv: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english'::regconfig, text)", persisted=True),
+        nullable=False,
+    )
+
+    episode: Mapped[Episode] = relationship(back_populates="chunks")
+
+    __table_args__ = (
+        UniqueConstraint("episode_id", "chunk_index", name="uq_chunks_episode_index"),
+        Index("ix_chunks_tsv", "tsv", postgresql_using="gin"),
+    )

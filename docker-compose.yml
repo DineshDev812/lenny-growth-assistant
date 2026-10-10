@@ -41,8 +41,17 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:3b}
       INGEST_TOKEN: ${INGEST_TOKEN:-}
+      TRANSCRIPTS_DIR: ${TRANSCRIPTS_DIR:-/data/transcripts}
+      INGEST_ON_STARTUP: ${INGEST_ON_STARTUP:-true}
+      CHUNK_TARGET_TOKENS: ${CHUNK_TARGET_TOKENS:-450}
+      CHUNK_MAX_TOKENS: ${CHUNK_MAX_TOKENS:-500}
+      CHUNK_OVERLAP_TOKENS: ${CHUNK_OVERLAP_TOKENS:-60}
+      RETRIEVAL_MIN_SCORE: ${RETRIEVAL_MIN_SCORE:-0.03}
+      RETRIEVAL_FALLBACK_MIN_SCORE: ${RETRIEVAL_FALLBACK_MIN_SCORE:-0.12}
     ports:
       - "8000:8000"
+    volumes:
+      - ./data/transcripts:/data/transcripts:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

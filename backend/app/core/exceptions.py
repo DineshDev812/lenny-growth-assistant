@@ -19,3 +19,8 @@ class DatabaseUnavailableError(AppError):
 class NotFoundError(AppError):
     def __init__(self, message: str = "Resource not found.") -> None:
         super().__init__(code="not_found", message=message, status_code=404)
+
+
+class UnauthorizedError(AppError):
+    def __init__(self, message: str = "Missing or invalid ingest token.") -> None:
+        super().__init__(code="unauthorized", message=message, status_code=401)

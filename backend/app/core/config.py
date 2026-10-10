@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     ollama_model: str = Field(default="qwen2.5:3b")
     ingest_token: str | None = Field(default=None)
 
+    transcripts_dir: str = Field(default="/data/transcripts")
+    ingest_on_startup: bool = Field(default=True)
+    chunk_target_tokens: int = Field(default=450, ge=50)
+    chunk_max_tokens: int = Field(default=500, ge=60)
+    chunk_overlap_tokens: int = Field(default=60, ge=0)
+    retrieval_min_score: float = Field(default=0.03, ge=0.0)
+    retrieval_fallback_min_score: float = Field(default=0.12, ge=0.0)
+
     @field_validator("anthropic_api_key", "ingest_token", mode="before")
     @classmethod
     def empty_str_to_none(cls, value: object) -> object:
