@@ -5,10 +5,12 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Computed,
     Date,
     DateTime,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     Text,
@@ -21,6 +23,35 @@ from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    seq: Mapped[int] = mapped_column(
+        BigInteger, Identity(start=1), nullable=False
+    )
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    sources: Mapped[Any] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    provider: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    session: Mapped[Session] = relationship(back_populates="messages")
+
+    __table_args__ = (
+        Index("ix_messages_session_id", "session_id"),
+        Index("ix_messages_session_created_seq", "session_id", "created_at", "seq"),
+    )
 
 
 class Session(Base):
@@ -42,33 +73,10 @@ class Session(Base):
     messages: Mapped[list[Message]] = relationship(
         back_populates="session",
         cascade="all, delete-orphan",
-        order_by="Message.created_at",
+        order_by=(Message.created_at, Message.seq),
     )
 
     __table_args__ = (Index("ix_sessions_client_id", "client_id"),)
-
-
-class Message(Base):
-    __tablename__ = "messages"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
-    session_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False
-    )
-    role: Mapped[str] = mapped_column(Text, nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    sources: Mapped[Any] = mapped_column(
-        JSONB, nullable=False, server_default=text("'[]'::jsonb")
-    )
-    provider: Mapped[str | None] = mapped_column(Text, nullable=True)
-    model: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )
-
-    session: Mapped[Session] = relationship(back_populates="messages")
-
-    __table_args__ = (Index("ix_messages_session_id", "session_id"),)
 
 
 class Episode(Base):
@@ -84,6 +92,9 @@ class Episode(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     source_path: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    keywords: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
     ingested_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -110,9 +121,14 @@ class Chunk(Base):
     speaker: Mapped[str | None] = mapped_column(Text, nullable=True)
     start_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    header: Mapped[str] = mapped_column(Text, nullable=False, server_default="")
     tsv: Mapped[Any] = mapped_column(
         TSVECTOR,
-        Computed("to_tsvector('english'::regconfig, text)", persisted=True),
+        Computed(
+            "setweight(to_tsvector('english'::regconfig, header), 'A') || "
+            "setweight(to_tsvector('english'::regconfig, text), 'B')",
+            persisted=True,
+        ),
         nullable=False,
     )
 

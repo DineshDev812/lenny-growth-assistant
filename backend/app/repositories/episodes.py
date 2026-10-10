@@ -29,6 +29,7 @@ class EpisodeRepository:
         description: str | None,
         source_path: str,
         content_hash: str,
+        keywords: list[str] | None = None,
         chunks: list[dict[str, Any]],
     ) -> int:
         """Insert or update one episode and replace all of its chunks. Returns chunk count."""
@@ -41,6 +42,7 @@ class EpisodeRepository:
             "description": description,
             "source_path": source_path,
             "content_hash": content_hash,
+            "keywords": keywords or [],
             "ingested_at": func.now(),
         }
         existing_id = (

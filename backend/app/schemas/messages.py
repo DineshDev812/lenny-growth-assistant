@@ -22,6 +22,7 @@ class MessageRead(BaseModel):
 
     id: UUID
     session_id: UUID
+    seq: int | None = None
     role: str
     content: str
     sources: Any
