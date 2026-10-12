@@ -32,14 +32,23 @@ COMMON_STOPWORDS = {
 }
 
 
+_STANDALONE_INTROS_RE = re.compile(
+    r"^(what\s+is|what\s+are|how\s+to|how\s+do|how\s+does|define|explain|who\s+is)\b",
+    re.IGNORECASE,
+)
+
+
 def is_follow_up(text: str) -> bool:
     """Determine whether a query is a conversational follow-up needing prior context."""
-    words = text.strip().split()
+    clean = text.strip()
+    if _START_FOLLOW_UP_RE.search(clean):
+        return True
+    if _PRONOUNS_RE.search(clean):
+        return True
+    if _STANDALONE_INTROS_RE.search(clean):
+        return False
+    words = clean.split()
     if len(words) < 5:
-        return True
-    if _PRONOUNS_RE.search(text):
-        return True
-    if _START_FOLLOW_UP_RE.search(text.strip()):
         return True
     return False
 

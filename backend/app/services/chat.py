@@ -258,6 +258,10 @@ class ChatService:
             chunks, match_mode = await retrieval_service.retrieve_with_meta(
                 retrieval_query, k=3 if intent == "qa" else 6
             )
+            if not chunks and retrieval_query != content.strip():
+                chunks, match_mode = await retrieval_service.retrieve_with_meta(
+                    content, k=3 if intent == "qa" else 6
+                )
 
         # -------------------------------------------------------------
         # Model generation & Grounding (No DB connection held!)
@@ -492,7 +496,10 @@ class ChatService:
                     await sess_repo.touch(session)
                 await db_c.commit()
                 asst_id = asst_msg.id
+                asst_msg.artifact = None
+                asst_read = MessageRead.model_validate(asst_msg).model_dump(mode="json")
             done_payload = {
+                "assistant_message": asst_read,
                 "message_id": str(asst_id),
                 "intent": intent,
                 "sources": [],
@@ -528,6 +535,10 @@ class ChatService:
             chunks, match_mode = await retrieval_service.retrieve_with_meta(
                 retrieval_query, k=3 if intent == "qa" else 6
             )
+            if not chunks and retrieval_query != content.strip():
+                chunks, match_mode = await retrieval_service.retrieve_with_meta(
+                    content, k=3 if intent == "qa" else 6
+                )
 
         # Format retrieved sources
         sources, sources_context = format_source_context(
@@ -754,6 +765,9 @@ class ChatService:
         # 5. Terminal event: done
         done_payload = {
             "assistant_message": MessageRead.model_validate(assistant_msg).model_dump(mode="json"),
+            "message_id": str(assistant_msg.id),
+            "sources": [s.model_dump(mode="json") for s in persisted_sources],
+            "error_class": error_class,
             "artifact": ArtifactRead.model_validate(artifact_obj).model_dump(mode="json") if artifact_obj else None,
         }
         yield f"event: done\ndata: {json.dumps(done_payload)}\n\n"

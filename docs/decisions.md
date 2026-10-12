@@ -231,3 +231,26 @@ Executed against local Ollama running `qwen2.5:3b` on AMD CPU:
 1. **Model Cache & Keep-Alive Lock**: Configured `"keep_alive": "24h"` in `OllamaProvider._build_payload` so once loaded, the model remains pinned in RAM and never unloads after idle periods.
 2. **Proactive Background Warm-Up**: Added an asynchronous startup hook in `app/main.py` that sends an initial warmup request to Ollama on container start. By the time the user types their first prompt, the model weights are already in memory (warm response latency is ~2.8 seconds).
 3. **Hardware-Tolerant Timeouts**: Updated `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` to 120s and `LLM_TIMEOUT_SECONDS` to 240s across `config.py`, `.env.example`, and `docker-compose.yml` to safely absorb heavy CPU load.
+
+---
+
+## 8. Part 8: Conversational Robustness, Query Disambiguation, & Frontend Resilience (2026-10-12)
+
+### 8.1 Query Disambiguation & Retrieval Fallback
+- **Problem**: Short questions like `"what is retention"` triggered "The transcripts I have don't support an answer to this...".
+- **Root Cause**: `services/query_builder.py` heuristic `len(words) < 5` blindly flagged every short standalone question as a conversational follow-up, erroneously appending terms from previous queries (e.g. `"simple java code"` from an earlier unrelated turn) into `"what is retention simple java code"`, resulting in 0 search hits.
+- **Fix**:
+  1. Added `_STANDALONE_INTROS_RE = re.compile(r"^(what\s+is|what\s+are|how\s+to|how\s+do|how\s+does|define|explain|who\s+is)\b", re.IGNORECASE)` to `query_builder.is_follow_up`. Standalone questions are never treated as follow-ups regardless of word count.
+  2. Added automatic retrieval fallback in `ChatService`: if an enriched follow-up query yields 0 chunks, it automatically retries with the clean user prompt directly before giving up.
+
+### 8.2 Greeting SSE Schema Alignment & Blank Screen Prevention
+- **Problem**: Sending `"hi"` caused a blank black screen after streaming finished, only recovering after a page refresh.
+- **Root Cause**:
+  1. The greeting shortcut in `stream_message` emitted `event: done` with `{"message_id": ...}` without an `assistant_message` object, whereas the normal Q&A path emitted `{"assistant_message": ...}`.
+  2. In the React frontend, `onDone` mapped the message state to `doneData.assistant_message` which was `undefined`, setting `m = undefined`. In React 18, unhandled render exceptions crash and unmount the entire component tree, leaving a black/empty root container.
+- **Fix**:
+  1. **Backend Schema Consistency**: Updated `chat.py` greeting stream to serialize and include `assistant_message` (`MessageRead.model_validate(asst_msg)`) as well as top-level fields in `done_payload`.
+  2. **Frontend State Merging**: Hardened `onDone` in `App.tsx` to handle both nested `assistant_message` and top-level fields, always falling back to existing streamed content and id.
+  3. **React ErrorBoundary**: Created `web/src/components/ErrorBoundary.tsx` wrapping the application root in `main.tsx` to prevent any unhandled render exception from wiping the screen.
+  4. **Safe Component Rendering**: Defensively guarded `ChatMessage.tsx` against undefined/null strings and malformed source arrays.
+

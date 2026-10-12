@@ -312,24 +312,29 @@ export const App: React.FC = () => {
             );
           },
           onDone: (doneData) => {
+            const asst = doneData.assistant_message;
             setMessages((prev) =>
               prev.map((m) =>
                 m && m.id === tempAssistantId
                   ? {
                       ...m,
-                      id: doneData.message_id || doneData.assistant_message?.id || m.id,
+                      id: asst?.id || doneData.message_id || m.id,
+                      content: asst?.content || m.content || '',
                       sources:
-                        doneData.sources && doneData.sources.length > 0
-                          ? doneData.sources
-                          : m.sources,
-                      error_class: doneData.error_class || m.error_class,
-                      artifact: doneData.artifact || doneData.assistant_message?.artifact || m.artifact,
+                        asst?.sources && asst.sources.length > 0
+                          ? asst.sources
+                          : doneData.sources && doneData.sources.length > 0
+                            ? doneData.sources
+                            : m.sources || [],
+                      error_class: asst?.error_class ?? doneData.error_class ?? m.error_class ?? null,
+                      artifact: asst?.artifact || doneData.artifact || m.artifact || null,
                     }
                   : m
               ).filter(Boolean)
             );
-            if (doneData.artifact?.id) {
-              api.getArtifact(doneData.artifact.id).then((fullArt) => {
+            const artId = doneData.artifact?.id || asst?.artifact?.id;
+            if (artId) {
+              api.getArtifact(artId).then((fullArt) => {
                 setActiveArtifact(fullArt);
                 setArtifactViewerOpen(true);
               }).catch(console.error);

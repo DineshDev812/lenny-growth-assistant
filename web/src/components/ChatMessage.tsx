@@ -20,10 +20,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   if (!message) return null;
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
+  const content = message.content || '';
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(content);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -32,20 +33,25 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   };
 
   // Process markdown and make [S1], [S2] citations clickable badges
-  const renderContent = (content: string) => {
-    // Replace citation tags [S1], [S2] with html badges
-    const processed = content.replace(/\[S(\d+)\]/gi, (_, num) => {
-      const tag = `S${num}`;
-      return `<button data-citation="${tag}" class="citation-btn inline-flex items-center px-1.5 py-0.2 mx-0.5 rounded text-[11px] font-bold bg-lenny-100 dark:bg-lenny-950 hover:bg-lenny-200 dark:hover:bg-lenny-900 text-lenny-800 dark:text-lenny-300 border border-lenny-300 dark:border-lenny-800 transition-colors cursor-pointer">[${tag}]</button>`;
-    });
+  const renderContent = (rawText: string = '') => {
+    if (!rawText) return { __html: '' };
+    try {
+      // Replace citation tags [S1], [S2] with html badges
+      const processed = rawText.replace(/\[S(\d+)\]/gi, (_, num) => {
+        const tag = `S${num}`;
+        return `<button data-citation="${tag}" class="citation-btn inline-flex items-center px-1.5 py-0.2 mx-0.5 rounded text-[11px] font-bold bg-lenny-100 dark:bg-lenny-950 hover:bg-lenny-200 dark:hover:bg-lenny-900 text-lenny-800 dark:text-lenny-300 border border-lenny-300 dark:border-lenny-800 transition-colors cursor-pointer">[${tag}]</button>`;
+      });
 
-    const rawHtml = marked.parse(processed) as string;
-    const sanitized = DOMPurify.sanitize(rawHtml, {
-      ADD_TAGS: ['button'],
-      ADD_ATTR: ['data-citation', 'class'],
-    });
+      const rawHtml = marked.parse(processed) as string;
+      const sanitized = DOMPurify.sanitize(rawHtml, {
+        ADD_TAGS: ['button'],
+        ADD_ATTR: ['data-citation', 'class'],
+      });
 
-    return { __html: sanitized };
+      return { __html: sanitized };
+    } catch {
+      return { __html: rawText };
+    }
   };
 
   const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -67,7 +73,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <User className="w-4 h-4" />
           </div>
           <div className="bg-stone-900 dark:bg-stone-800 text-stone-50 px-4 py-3 rounded-2xl rounded-tr-sm text-xs md:text-sm shadow-xs whitespace-pre-wrap leading-relaxed border border-stone-800 dark:border-stone-700">
-            {message.content}
+            {content}
           </div>
         </div>
       </div>
@@ -127,14 +133,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                 <div>
                   <strong className="font-semibold block">Notice:</strong>
-                  {message.content}
+                  {content}
                 </div>
               </div>
             ) : (
               <div className="relative">
                 <div
                   className="prose prose-lenny max-w-none text-xs md:text-sm"
-                  dangerouslySetInnerHTML={renderContent(message.content)}
+                  dangerouslySetInnerHTML={renderContent(content)}
                   onClick={handleContentClick}
                 />
                 {isStreaming && <span className="streaming-caret" />}
@@ -169,21 +175,21 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             )}
 
             {/* Grounded Citations Bar */}
-            {message.sources && message.sources.length > 0 && (
+            {message.sources && Array.isArray(message.sources) && message.sources.length > 0 && (
               <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800">
                 <div className="text-[10px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <span>Cited Sources ({message.sources.length})</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {message.sources.map((src: Source) => (
+                  {message.sources.filter((src: any) => Boolean(src && src.id)).map((src: Source) => (
                     <button
                       key={src.id}
                       onClick={() => onOpenSource(src.id)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#FBF9F5] dark:bg-stone-800/80 hover:bg-lenny-100 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200/80 dark:border-stone-700 transition-colors group/src"
-                      title={`${src.title} (${src.guest})`}
+                      title={`${src.title || ''} (${src.guest || ''})`}
                     >
                       <span className="font-bold text-lenny-700 dark:text-lenny-400">[{src.id}]</span>
-                      <span className="truncate max-w-[140px] md:max-w-[200px]">{src.guest}</span>
+                      <span className="truncate max-w-[140px] md:max-w-[200px]">{src.guest || src.title || src.id}</span>
                       {src.youtube_deep_link && (
                         <ExternalLink className="w-2.5 h-2.5 text-stone-400 dark:text-stone-500 group-hover/src:text-lenny-700 dark:group-hover/src:text-lenny-400" />
                       )}
