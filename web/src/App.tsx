@@ -213,7 +213,7 @@ export const App: React.FC = () => {
 
   const handleSendMessage = async (
     content: string,
-    intent?: 'qa' | 'essay' | 'artifact' | null,
+    intent?: 'qa' | 'essay' | 'artifact' | 'general' | null,
     artifactFormat?: 'markdown' | 'html' | null
   ) => {
     let currentSessionId = activeSessionId;
@@ -327,6 +327,8 @@ export const App: React.FC = () => {
                             ? doneData.sources
                             : m.sources || [],
                       error_class: asst?.error_class ?? doneData.error_class ?? m.error_class ?? null,
+                      kind: asst?.kind || m.kind || null,
+                      actions: asst?.actions || doneData.actions || m.actions || null,
                       artifact: asst?.artifact || doneData.artifact || m.artifact || null,
                     }
                   : m
@@ -423,6 +425,7 @@ export const App: React.FC = () => {
                         isStreaming={isStreaming && isLastMessage && message.role === 'assistant'}
                         onOpenSource={handleOpenSource}
                         onOpenArtifact={handleOpenArtifact}
+                        onAction={(act) => handleSendMessage(act.prompt, 'general')}
                       />
                     );
                   })}

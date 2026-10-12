@@ -44,6 +44,10 @@ class Message(Base):
     model: Mapped[str | None] = mapped_column(Text, nullable=True)
     intent: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_class: Mapped[str | None] = mapped_column(Text, nullable=True)
+    kind: Mapped[str | None] = mapped_column(Text, nullable=True, server_default=text("'answer'"))
+    actions: Mapped[Any] = mapped_column(
+        JSONB, nullable=True, server_default=text("'[]'::jsonb")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

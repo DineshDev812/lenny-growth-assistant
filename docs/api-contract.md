@@ -84,11 +84,15 @@ Represents a grounded transcript chunk citation returned with an answer:
   "provider": "ollama",
   "model": "qwen2.5:3b",
   "intent": "qa",
+  "kind": "answer",
+  "actions": [],
   "error_class": null,
   "artifact": null,
   "created_at": "2026-10-10T12:00:00Z"
 }
 ```
+- `kind`: `"answer" | "abstain" | "error" | "smalltalk" | "general"`.
+- `actions`: array of action buttons for user follow-up (e.g. `[{"type":"answer_general","label":"Answer from general knowledge","prompt":"..."}]`).
 *Note: Reads must always order deterministically by `(created_at, seq)`.*
 
 ---
@@ -205,7 +209,7 @@ Send a user message. Supports both regular JSON and Server-Sent Events (SSE).
 }
 ```
   - `content`: `string`, 1 to 20,000 characters.
-  - `intent`: `"qa" | "essay" | "artifact" | null` (optional classification hint).
+  - `intent`: `"qa" | "essay" | "artifact" | "general" | null` (optional classification hint).
   - `artifact_format`: `"markdown" | "html" | null`.
 
 #### Path A: Standard JSON (`Accept: application/json`)
@@ -233,23 +237,32 @@ data: <json>
    {
      "user_message_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
      "intent": "qa",
+     "route": "grounded",
      "provider": "ollama",
      "model": "qwen2.5:3b"
    }
    ```
-2. **`event: sources`** (Sent immediately after retrieval, before any generation token):
+   - `route`: `"smalltalk" | "essay" | "artifact" | "grounded" | "general" | "unsupported_domain"`.
+2. **`event: status`** (Optional additive state transitions):
+   ```json
+   {
+     "status": "searching"
+   }
+   ```
+   *Values: `"searching" | "writing"`.*
+3. **`event: sources`** (Sent immediately after retrieval, before any generation token):
    ```json
    {
      "sources": [ ...Source Objects... ]
    }
    ```
-3. **`event: token`** (Repeated per chunk of generated text):
+4. **`event: token`** (Repeated per chunk of generated text):
    ```json
    {
      "text": "Activation "
    }
    ```
-4. **`event: artifact`** (Optional, emitted when an essay/artifact is produced):
+5. **`event: artifact`** (Optional, emitted when an essay/artifact is produced):
    ```json
    {
      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
@@ -257,7 +270,7 @@ data: <json>
      "title": "The Onboarding Engine: A Ship 30 Guide"
    }
    ```
-5. **`event: error`** (Sent if a failure occurs mid-stream):
+6. **`event: error`** (Sent if a failure occurs mid-stream):
    ```json
    {
      "error": {
@@ -269,11 +282,19 @@ data: <json>
    }
    ```
    *Note: Even upon mid-stream failure, a friendly fallback assistant message with `error_class` is persisted in the session history so the conversation remains intact.*
-6. **`event: done`** (Stream completion terminal event):
+7. **`event: done`** (Stream completion terminal event):
    ```json
    {
      "assistant_message": { ...Message Object... },
-     "artifact": null
+     "message_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+     "intent": "qa",
+     "route": "grounded",
+     "sources": [ ...Source Objects... ],
+     "actions": [],
+     "artifact": null,
+     "error_class": null,
+     "timings": { "total_ms": 1200 },
+     "cached": false
    }
    ```
 

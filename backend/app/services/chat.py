@@ -12,7 +12,14 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.agent.prompts import format_qa_prompt
-from app.agent.router import classify_intent
+from app.agent.router import (
+    classify_intent,
+    classify_route,
+    is_smalltalk,
+    _SMALLTALK_GREETING_RE,
+    _SMALLTALK_THANKS_RE,
+    _SMALLTALK_IDENTITY_RE,
+)
 from app.agent.skills.ship30.prompts import format_ship30_prompt
 from app.core.config import Settings, get_settings
 from app.core.exceptions import (
@@ -52,11 +59,6 @@ EMPTY_RETRIEVAL_MESSAGE = (
     "Try asking about a product, growth, or career topic covered on Lenny's Podcast."
 )
 
-_GREETING_RE = re.compile(
-    r"^(hi|hello|hey|hey\s+there|good\s+(?:morning|afternoon|evening)|howdy|sup|yo)[!.,?\s]*$",
-    re.IGNORECASE,
-)
-
 GREETING_MESSAGE = (
     "Hey! I'm **The Lenny Growth Assistant**, grounded in 300+ Lenny's Podcast episodes.\n\n"
     "Here are some great questions to ask me:\n"
@@ -65,6 +67,23 @@ GREETING_MESSAGE = (
     "• *'How did Figma find its first 1,000 users?'*\n"
     "• *'What did Brian Chesky say about design-led companies?'*\n\n"
     "You can also ask me to **write a Ship 30 for 30 essay** or **generate an interactive HTML widget**!"
+)
+
+THANKS_MESSAGE = (
+    "You're very welcome! Let me know if you want to explore more growth frameworks, "
+    "draft a Ship 30 essay, or generate an interactive tool."
+)
+
+IDENTITY_MESSAGE = (
+    "I am **The Lenny Growth Assistant**, an expert companion built on 300+ episodes and transcripts of Lenny's Podcast.\n\n"
+    "I provide strictly grounded answers with citations and YouTube timestamps, draft Ship 30 for 30 essays, "
+    "and create interactive HTML tools. I can also help with general questions!"
+)
+
+GENERAL_SYSTEM_PROMPT = (
+    "You are a helpful, direct, and concise AI assistant. Answer the user's question clearly and honestly. "
+    "If you are unsure or do not know the answer, say so directly. Do NOT fabricate information, links, or citations. "
+    "Do not include any source citations or [S#] markers."
 )
 
 _TITLE_MAX = 60
@@ -85,15 +104,27 @@ def _prepare_history_context(
     token_budget: int = 1500,
 ) -> list[LLMMessage]:
     """Prepare prior conversation history for model context:
-    1. Take the last `max_history` messages.
-    2. Strip old [S#] markers from past assistant messages.
-    3. Ensure roles alternate and start with 'user'.
-    4. Stay within token budget.
+    1. Filter out error, abstain, and client-disconnected messages.
+    2. Take the last `max_history` messages.
+    3. Strip old [S#] markers from past assistant messages.
+    4. Ensure roles alternate and start with 'user'.
+    5. Stay within token budget.
     """
     if not messages or max_history <= 0:
         return []
 
-    recent = messages[-max_history:]
+    valid_msgs = []
+    for msg in messages:
+        if getattr(msg, "error_class", None):
+            continue
+        kind = getattr(msg, "kind", None)
+        if kind in ("error", "abstain"):
+            continue
+        if "[Client disconnected]" in msg.content:
+            continue
+        valid_msgs.append(msg)
+
+    recent = valid_msgs[-max_history:]
     cleaned_items: list[tuple[str, str]] = []
 
     for msg in recent:
@@ -181,7 +212,8 @@ class ChatService:
         artifact_format: str | None = None,
     ) -> SendMessageResponse:
         settings = get_settings()
-        intent = classify_intent(content, explicit_intent)
+        route = classify_route(content, explicit_intent=explicit_intent)
+        intent = explicit_intent or ("general" if route == "general" else classify_intent(content, explicit_intent))
 
         # -------------------------------------------------------------
         # Phase A (own session, commit): Verify ownership & save user message
@@ -204,16 +236,27 @@ class ChatService:
             await db_a.commit()
             user_msg_id = user_msg.id
 
-        # Check greeting shortcut
-        if _GREETING_RE.match(content.strip()):
+        # Check smalltalk shortcut
+        if route == "smalltalk":
+            if _SMALLTALK_THANKS_RE.match(content.strip()):
+                reply_text = THANKS_MESSAGE
+            elif _SMALLTALK_IDENTITY_RE.match(content.strip()):
+                reply_text = IDENTITY_MESSAGE
+            else:
+                reply_text = GREETING_MESSAGE
+
             async with self._session_factory() as db_c:
                 msg_repo = MessageRepository(db_c)
                 asst_msg = await msg_repo.create(
                     session_id=session_id,
                     role="assistant",
-                    content=GREETING_MESSAGE,
+                    content=reply_text,
                     sources=[],
+                    provider=get_llm_provider(settings).provider_name,
+                    model=get_llm_provider(settings).model_name,
                     intent=intent,
+                    kind="smalltalk",
+                    actions=[],
                 )
                 sess_repo = SessionRepository(db_c)
                 session = await sess_repo.get_owned(session_id, client_id)
@@ -233,6 +276,8 @@ class ChatService:
         # -------------------------------------------------------------
         # Phase B (own session, read-only, CLOSE before LLM): History & Retrieval
         # -------------------------------------------------------------
+        chunks = []
+        match_mode = "none"
         async with self._session_factory() as db_b:
             sess_repo = SessionRepository(db_b)
             session = await sess_repo.get_owned(session_id, client_id)
@@ -248,20 +293,21 @@ class ChatService:
                 token_budget=1000,
             )
 
-            # Query enrichment for follow-ups
-            retrieval_query = build_retrieval_query(
-                content,
-                previous_user_message=prev_user_msg.content if prev_user_msg else None,
-            )
-
-            retrieval_service = RetrievalService(db_b)
-            chunks, match_mode = await retrieval_service.retrieve_with_meta(
-                retrieval_query, k=3 if intent == "qa" else 6
-            )
-            if not chunks and retrieval_query != content.strip():
-                chunks, match_mode = await retrieval_service.retrieve_with_meta(
-                    content, k=3 if intent == "qa" else 6
+            if route != "general":
+                # Query enrichment for follow-ups
+                retrieval_query = build_retrieval_query(
+                    content,
+                    previous_user_message=prev_user_msg.content if prev_user_msg else None,
                 )
+
+                retrieval_service = RetrievalService(db_b)
+                chunks, match_mode = await retrieval_service.retrieve_with_meta(
+                    retrieval_query, k=3 if intent == "qa" else 6
+                )
+                if not chunks and retrieval_query != content.strip():
+                    chunks, match_mode = await retrieval_service.retrieve_with_meta(
+                        content, k=3 if intent == "qa" else 6
+                    )
 
         # -------------------------------------------------------------
         # Model generation & Grounding (No DB connection held!)
@@ -271,20 +317,31 @@ class ChatService:
 
         # Check weak OR-fallback threshold or empty retrieval
         should_abstain = False
-        if not chunks:
-            should_abstain = True
-        elif match_mode == "or_fallback":
-            highest_score = max((c.score for c in chunks), default=0.0)
-            if highest_score < settings.retrieval_min_answer_score:
-                logger.info(
-                    "OR-fallback score below minimum threshold, abstaining without LLM call",
-                    extra={
-                        "event": "weak_retrieval_abstain",
-                        "highest_score": highest_score,
-                        "threshold": settings.retrieval_min_answer_score,
-                    },
-                )
+        actions_list: list[dict[str, Any]] = []
+        if route != "general":
+            if not chunks:
                 should_abstain = True
+            elif match_mode == "or_fallback":
+                highest_score = max((c.score for c in chunks), default=0.0)
+                if highest_score < settings.retrieval_min_answer_score:
+                    logger.info(
+                        "OR-fallback score below minimum threshold, abstaining without LLM call",
+                        extra={
+                            "event": "weak_retrieval_abstain",
+                            "highest_score": highest_score,
+                            "threshold": settings.retrieval_min_answer_score,
+                        },
+                    )
+                    should_abstain = True
+            if should_abstain:
+                route = "unsupported_domain"
+                actions_list = [
+                    {
+                        "type": "answer_general",
+                        "label": "Answer from general knowledge",
+                        "prompt": content,
+                    }
+                ]
 
         raw_content = ""
         error_class: str | None = None
@@ -294,18 +351,23 @@ class ChatService:
             raw_content = EMPTY_RETRIEVAL_MESSAGE
             sources = []
         else:
-            sources, sources_context = format_source_context(
-                chunks,
-                token_budget=1500 if intent == "qa" else settings.context_token_budget,
-                max_chunks_per_episode=2,
-            )
-            if intent == "essay":
-                system_prompt = format_ship30_prompt(sources_context)
+            if route == "general":
+                sources = []
+                system_prompt = GENERAL_SYSTEM_PROMPT
+                gen_tokens = 260
             else:
-                system_prompt = format_qa_prompt(sources_context)
+                sources, sources_context = format_source_context(
+                    chunks,
+                    token_budget=1500 if intent == "qa" else settings.context_token_budget,
+                    max_chunks_per_episode=2,
+                )
+                if intent == "essay":
+                    system_prompt = format_ship30_prompt(sources_context)
+                else:
+                    system_prompt = format_qa_prompt(sources_context)
+                gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
 
             all_messages = [*history_context, LLMMessage(role="user", content=content)]
-            gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
 
             try:
                 llm_res = await asyncio.wait_for(
@@ -360,8 +422,13 @@ class ChatService:
         # Citation validation and strict grounding
         final_content = raw_content
         persisted_sources: list[Source] = []
+        kind = "answer"
 
-        if sources and not should_abstain:
+        if route == "general":
+            final_content = _CITATION_GROUP_RE.sub("", raw_content).strip()
+            persisted_sources = []
+            kind = "general"
+        elif sources and not should_abstain:
             clean_text, used_ids, dropped_ids = validate_citations(raw_content, sources)
             if settings.grounding_strict and not used_ids:
                 logger.info(
@@ -370,12 +437,23 @@ class ChatService:
                 )
                 final_content = EMPTY_RETRIEVAL_MESSAGE
                 error_class = "grounding_failed"
+                kind = "abstain"
                 persisted_sources = []
+                actions_list = [
+                    {
+                        "type": "answer_general",
+                        "label": "Answer from general knowledge",
+                        "prompt": content,
+                    }
+                ]
             else:
                 final_content = clean_text
                 persisted_sources = filter_cited_sources(sources, used_ids)
+                kind = "answer"
         elif should_abstain:
             persisted_sources = []
+            kind = "abstain"
+            error_class = "empty_retrieval"
 
         # -------------------------------------------------------------
         # Phase C (own session, commit): Save assistant message & artifact
@@ -398,10 +476,12 @@ class ChatService:
                 model=active_provider.model_name,
                 intent=intent,
                 error_class=error_class,
+                kind=kind,
+                actions=actions_list,
             )
 
             artifact_obj: Artifact | None = None
-            if not error_class and intent in ("essay", "artifact") and final_content:
+            if not error_class and not should_abstain and intent in ("essay", "artifact") and final_content:
                 art_fmt = artifact_format or ("markdown" if intent == "essay" else "html")
                 art_title = _extract_title(final_content, f"Lenny Growth {intent.capitalize()}")
                 art_body = extract_artifact_content(final_content, art_fmt)
@@ -440,7 +520,8 @@ class ChatService:
         artifact_format: str | None = None,
     ) -> AsyncIterator[str]:
         settings = get_settings()
-        intent = classify_intent(content, explicit_intent)
+        route = classify_route(content, explicit_intent=explicit_intent)
+        intent = explicit_intent or ("general" if route == "general" else classify_intent(content, explicit_intent))
 
         # -------------------------------------------------------------
         # Phase A (own session, commit): Verify ownership & save user message
@@ -470,25 +551,38 @@ class ChatService:
         start_payload = {
             "user_message_id": str(user_msg_id),
             "intent": intent,
+            "route": route,
             "provider": primary_provider.provider_name,
             "model": primary_provider.model_name,
         }
         yield f"event: start\ndata: {json.dumps(start_payload)}\n\n"
 
-        # Check greeting shortcut
-        if _GREETING_RE.match(content.strip()):
+        # Check smalltalk shortcut
+        if route == "smalltalk":
+            if _SMALLTALK_THANKS_RE.match(content.strip()):
+                reply_text = THANKS_MESSAGE
+            elif _SMALLTALK_IDENTITY_RE.match(content.strip()):
+                reply_text = IDENTITY_MESSAGE
+            else:
+                reply_text = GREETING_MESSAGE
+
             yield f"event: sources\ndata: {json.dumps({'sources': []})}\n\n"
-            for word in GREETING_MESSAGE.split(" "):
+            for word in reply_text.split(" "):
                 token = word + " "
                 yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
+                await asyncio.sleep(0.015)
             async with self._session_factory() as db_c:
                 msg_repo = MessageRepository(db_c)
                 asst_msg = await msg_repo.create(
                     session_id=session_id,
                     role="assistant",
-                    content=GREETING_MESSAGE,
+                    content=reply_text,
                     sources=[],
+                    provider=primary_provider.provider_name,
+                    model=primary_provider.model_name,
                     intent=intent,
+                    kind="smalltalk",
+                    actions=[],
                 )
                 sess_repo = SessionRepository(db_c)
                 session = await sess_repo.get_owned(session_id, client_id)
@@ -502,7 +596,9 @@ class ChatService:
                 "assistant_message": asst_read,
                 "message_id": str(asst_id),
                 "intent": intent,
+                "route": route,
                 "sources": [],
+                "actions": [],
                 "artifact": None,
                 "error_class": None,
             }
@@ -512,60 +608,89 @@ class ChatService:
         # -------------------------------------------------------------
         # Phase B (own session, read-only, CLOSE before LLM): History & Retrieval
         # -------------------------------------------------------------
-        async with self._session_factory() as db_b:
-            sess_repo = SessionRepository(db_b)
-            session = await sess_repo.get_owned(session_id, client_id)
-            if session is None:
-                raise NotFoundError("Session not found.")
+        chunks = []
+        match_mode = "none"
+        sources: list[Source] = []
+        sources_context = ""
 
-            prior_messages = [m for m in session.messages if m.id != user_msg_id]
-            prev_user_msg = next((m for m in reversed(prior_messages) if m.role == "user"), None)
-            history_context = _prepare_history_context(
-                prior_messages,
-                max_history=settings.chat_history_messages,
-                token_budget=1000,
-            )
+        if route == "general":
+            async with self._session_factory() as db_b:
+                sess_repo = SessionRepository(db_b)
+                session = await sess_repo.get_owned(session_id, client_id)
+                if session is None:
+                    raise NotFoundError("Session not found.")
+                prior_messages = [m for m in session.messages if m.id != user_msg_id]
+                history_context = _prepare_history_context(
+                    prior_messages,
+                    max_history=settings.chat_history_messages,
+                    token_budget=1000,
+                )
+            yield f"event: sources\ndata: {json.dumps({'sources': []})}\n\n"
+        else:
+            async with self._session_factory() as db_b:
+                sess_repo = SessionRepository(db_b)
+                session = await sess_repo.get_owned(session_id, client_id)
+                if session is None:
+                    raise NotFoundError("Session not found.")
 
-            retrieval_query = build_retrieval_query(
-                content,
-                previous_user_message=prev_user_msg.content if prev_user_msg else None,
-            )
-
-            retrieval_service = RetrievalService(db_b)
-            chunks, match_mode = await retrieval_service.retrieve_with_meta(
-                retrieval_query, k=3 if intent == "qa" else 6
-            )
-            if not chunks and retrieval_query != content.strip():
-                chunks, match_mode = await retrieval_service.retrieve_with_meta(
-                    content, k=3 if intent == "qa" else 6
+                prior_messages = [m for m in session.messages if m.id != user_msg_id]
+                prev_user_msg = next((m for m in reversed(prior_messages) if m.role == "user"), None)
+                history_context = _prepare_history_context(
+                    prior_messages,
+                    max_history=settings.chat_history_messages,
+                    token_budget=1000,
                 )
 
-        # Format retrieved sources
-        sources, sources_context = format_source_context(
-            chunks,
-            token_budget=1500 if intent == "qa" else settings.context_token_budget,
-            max_chunks_per_episode=2,
-        )
+                retrieval_query = build_retrieval_query(
+                    content,
+                    previous_user_message=prev_user_msg.content if prev_user_msg else None,
+                )
 
-        # 2. Event: sources (emit all retrieved sources to frontend)
-        yield f"event: sources\ndata: {json.dumps({'sources': [s.model_dump(mode='json') for s in sources]})}\n\n"
+                retrieval_service = RetrievalService(db_b)
+                chunks, match_mode = await retrieval_service.retrieve_with_meta(
+                    retrieval_query, k=3 if intent == "qa" else 6
+                )
+                if not chunks and retrieval_query != content.strip():
+                    chunks, match_mode = await retrieval_service.retrieve_with_meta(
+                        content, k=3 if intent == "qa" else 6
+                    )
+
+            # Format retrieved sources
+            sources, sources_context = format_source_context(
+                chunks,
+                token_budget=1500 if intent == "qa" else settings.context_token_budget,
+                max_chunks_per_episode=2,
+            )
+            # 2. Event: sources (emit all retrieved sources to frontend)
+            yield f"event: sources\ndata: {json.dumps({'sources': [s.model_dump(mode='json') for s in sources]})}\n\n"
 
         # Check weak OR-fallback threshold or empty retrieval
         should_abstain = False
-        if not chunks:
-            should_abstain = True
-        elif match_mode == "or_fallback":
-            highest_score = max((c.score for c in chunks), default=0.0)
-            if highest_score < settings.retrieval_min_answer_score:
-                logger.info(
-                    "OR-fallback score below minimum threshold, abstaining without LLM call",
-                    extra={
-                        "event": "weak_retrieval_abstain",
-                        "highest_score": highest_score,
-                        "threshold": settings.retrieval_min_answer_score,
-                    },
-                )
+        actions_list: list[dict[str, Any]] = []
+        if route != "general":
+            if not chunks:
                 should_abstain = True
+            elif match_mode == "or_fallback":
+                highest_score = max((c.score for c in chunks), default=0.0)
+                if highest_score < settings.retrieval_min_answer_score:
+                    logger.info(
+                        "OR-fallback score below minimum threshold, abstaining without LLM call",
+                        extra={
+                            "event": "weak_retrieval_abstain",
+                            "highest_score": highest_score,
+                            "threshold": settings.retrieval_min_answer_score,
+                        },
+                    )
+                    should_abstain = True
+            if should_abstain:
+                route = "unsupported_domain"
+                actions_list = [
+                    {
+                        "type": "answer_general",
+                        "label": "Answer from general knowledge",
+                        "prompt": content,
+                    }
+                ]
 
         assistant_tokens: list[str] = []
         error_class: str | None = None
@@ -575,12 +700,17 @@ class ChatService:
                 token = word + " "
                 assistant_tokens.append(token)
                 yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
+                await asyncio.sleep(0.01)
         else:
-            gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
-            if intent == "essay":
-                system_prompt = format_ship30_prompt(sources_context)
+            if route == "general":
+                system_prompt = GENERAL_SYSTEM_PROMPT
+                gen_tokens = 260
             else:
-                system_prompt = format_qa_prompt(sources_context)
+                if intent == "essay":
+                    system_prompt = format_ship30_prompt(sources_context)
+                else:
+                    system_prompt = format_qa_prompt(sources_context)
+                gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
 
             all_messages = [*history_context, LLMMessage(role="user", content=content)]
 
@@ -699,8 +829,15 @@ class ChatService:
         # Citation validation and strict grounding
         final_content = raw_content
         persisted_sources: list[Source] = []
+        kind = "answer"
 
-        if sources and not should_abstain and not error_class:
+        if error_class:
+            kind = "error"
+        elif route == "general":
+            final_content = _CITATION_GROUP_RE.sub("", raw_content).strip()
+            persisted_sources = []
+            kind = "general"
+        elif sources and not should_abstain:
             clean_text, used_ids, dropped_ids = validate_citations(raw_content, sources)
             if settings.grounding_strict and not used_ids:
                 logger.info(
@@ -709,12 +846,23 @@ class ChatService:
                 )
                 final_content = EMPTY_RETRIEVAL_MESSAGE
                 error_class = "grounding_failed"
+                kind = "abstain"
                 persisted_sources = []
+                actions_list = [
+                    {
+                        "type": "answer_general",
+                        "label": "Answer from general knowledge",
+                        "prompt": content,
+                    }
+                ]
             else:
                 final_content = clean_text
                 persisted_sources = filter_cited_sources(sources, used_ids)
+                kind = "answer"
         elif should_abstain:
             persisted_sources = []
+            kind = "abstain"
+            error_class = "empty_retrieval"
 
         # -------------------------------------------------------------
         # Phase C (own session, commit): Save assistant message & artifact
@@ -738,10 +886,12 @@ class ChatService:
                 model=active_provider.model_name,
                 intent=intent,
                 error_class=error_class,
+                kind=kind,
+                actions=actions_list,
             )
 
             # 4. Event: artifact
-            if not error_class and intent in ("essay", "artifact") and final_content:
+            if not error_class and not should_abstain and intent in ("essay", "artifact") and final_content:
                 art_fmt = artifact_format or ("markdown" if intent == "essay" else "html")
                 art_title = _extract_title(final_content, f"Lenny Growth {intent.capitalize()}")
                 art_body = extract_artifact_content(final_content, art_fmt)
@@ -766,7 +916,10 @@ class ChatService:
         done_payload = {
             "assistant_message": MessageRead.model_validate(assistant_msg).model_dump(mode="json"),
             "message_id": str(assistant_msg.id),
+            "intent": intent,
+            "route": route,
             "sources": [s.model_dump(mode="json") for s in persisted_sources],
+            "actions": actions_list,
             "error_class": error_class,
             "artifact": ArtifactRead.model_validate(artifact_obj).model_dump(mode="json") if artifact_obj else None,
         }

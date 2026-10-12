@@ -90,11 +90,11 @@ export const api = {
     sessionId: string,
     payload: {
       content: string;
-      intent?: 'qa' | 'essay' | 'artifact' | null;
+      intent?: 'qa' | 'essay' | 'artifact' | 'general' | null;
       artifact_format?: 'markdown' | 'html' | null;
     },
     callbacks: {
-      onStart?: (data: { user_message_id: string; intent?: string; provider?: string; model?: string }) => void;
+      onStart?: (data: { user_message_id: string; intent?: string; route?: string; provider?: string; model?: string }) => void;
       onSources?: (sources: Source[]) => void;
       onToken?: (token: string) => void;
       onArtifact?: (art: { id: string; format: 'markdown' | 'html'; title: string }) => void;
@@ -102,7 +102,9 @@ export const api = {
       onDone?: (doneData: {
         message_id?: string;
         intent?: string;
+        route?: string;
         sources?: Source[];
+        actions?: any[];
         artifact?: ArtifactSummary | null;
         error_class?: string | null;
         assistant_message?: Message;
@@ -146,53 +148,63 @@ export const api = {
     const decoder = new TextDecoder('utf-8');
     let buffer = '';
 
+    const processBlock = (block: string) => {
+      if (!block.trim()) return;
+      let eventType = 'message';
+      const dataLines: string[] = [];
+
+      for (const line of block.split('\n')) {
+        if (line.startsWith('event:')) {
+          eventType = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+          dataLines.push(line.slice(5).trim());
+        }
+      }
+
+      if (dataLines.length === 0) return;
+      const eventData = dataLines.join('\n');
+
+      try {
+        const parsed = JSON.parse(eventData);
+        if (eventType === 'start') {
+          callbacks.onStart?.(parsed);
+        } else if (eventType === 'sources') {
+          callbacks.onSources?.(parsed.sources || []);
+        } else if (eventType === 'token') {
+          callbacks.onToken?.(parsed.text || '');
+        } else if (eventType === 'artifact') {
+          callbacks.onArtifact?.(parsed);
+        } else if (eventType === 'error') {
+          callbacks.onError?.({
+            code: parsed.error?.code || 'internal_error',
+            message: parsed.error?.message || 'Unknown error occurred',
+            request_id: parsed.error?.request_id,
+            retryable: parsed.retryable,
+          });
+        } else if (eventType === 'done') {
+          callbacks.onDone?.(parsed);
+        }
+      } catch (e) {
+        console.warn('Failed to parse SSE JSON block:', block, e);
+      }
+    };
+
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        if (buffer.trim()) {
+          processBlock(buffer);
+        }
+        break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
-      const blocks = buffer.split('\n\n');
+      const normalized = buffer.replace(/\r\n/g, '\n');
+      const blocks = normalized.split('\n\n');
       buffer = blocks.pop() || '';
 
       for (const block of blocks) {
-        if (!block.trim()) continue;
-
-        let eventType = 'message';
-        let eventData = '';
-
-        for (const line of block.split('\n')) {
-          if (line.startsWith('event:')) {
-            eventType = line.slice(6).trim();
-          } else if (line.startsWith('data:')) {
-            eventData = line.slice(5).trim();
-          }
-        }
-
-        if (!eventData) continue;
-
-        try {
-          const parsed = JSON.parse(eventData);
-          if (eventType === 'start') {
-            callbacks.onStart?.(parsed);
-          } else if (eventType === 'sources') {
-            callbacks.onSources?.(parsed.sources || []);
-          } else if (eventType === 'token') {
-            callbacks.onToken?.(parsed.text || '');
-          } else if (eventType === 'artifact') {
-            callbacks.onArtifact?.(parsed);
-          } else if (eventType === 'error') {
-            callbacks.onError?.({
-              code: parsed.error?.code || 'internal_error',
-              message: parsed.error?.message || 'Unknown error occurred',
-              request_id: parsed.error?.request_id,
-              retryable: parsed.retryable,
-            });
-          } else if (eventType === 'done') {
-            callbacks.onDone?.(parsed);
-          }
-        } catch (e) {
-          console.warn('Failed to parse SSE JSON block:', block, e);
-        }
+        processBlock(block);
       }
     }
   },

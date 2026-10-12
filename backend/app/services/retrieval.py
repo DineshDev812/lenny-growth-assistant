@@ -31,7 +31,7 @@ COMMON_STOPWORDS = {
     "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so",
     "than", "too", "very", "can", "will", "just", "dont", "shouldnt", "cant",
     "without", "conduct", "employed", "using", "use", "used", "make", "made",
-    "by", "of",
+    "by", "of", "write", "ship", "30", "essay", "article", "widget", "calculator", "page", "mockup", "interactive",
 }
 
 

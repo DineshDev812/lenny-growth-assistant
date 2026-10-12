@@ -3,6 +3,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models import Message
 
@@ -22,6 +23,8 @@ class MessageRepository:
         model: str | None = None,
         intent: str | None = None,
         error_class: str | None = None,
+        kind: str | None = None,
+        actions: list[Any] | None = None,
     ) -> Message:
         message = Message(
             session_id=session_id,
@@ -32,6 +35,8 @@ class MessageRepository:
             model=model,
             intent=intent,
             error_class=error_class,
+            kind=kind or ("error" if error_class else "answer"),
+            actions=actions if actions is not None else [],
         )
         self._db.add(message)
         await self._db.flush()

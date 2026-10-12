@@ -38,8 +38,10 @@ export interface Message {
   sources?: Source[];
   provider?: string | null;
   model?: string | null;
-  intent?: 'qa' | 'essay' | 'artifact' | null;
+  intent?: 'qa' | 'essay' | 'artifact' | 'general' | null;
   error_class?: string | null;
+  kind?: string | null;
+  actions?: Array<{ type: string; label: string; prompt: string }> | null;
   artifact?: ArtifactSummary | null;
   created_at: string;
 }

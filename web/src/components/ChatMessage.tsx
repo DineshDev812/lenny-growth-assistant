@@ -9,6 +9,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
   onOpenSource: (sourceId: string) => void;
   onOpenArtifact: (artifact: ArtifactSummary) => void;
+  onAction?: (action: { type: string; label: string; prompt: string }) => void;
 }
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
@@ -16,6 +17,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   isStreaming,
   onOpenSource,
   onOpenArtifact,
+  onAction,
 }) => {
   if (!message) return null;
   const [copied, setCopied] = useState(false);
@@ -103,6 +105,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               {message.intent && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-lenny-50 dark:bg-lenny-950/70 text-lenny-800 dark:text-lenny-300 border border-lenny-200 dark:border-lenny-800 font-medium uppercase tracking-wider">
                   {message.intent}
+                </span>
+              )}
+              {(message.kind === 'general' || message.intent === 'general') && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-700 font-medium">
+                  General answer · not from Lenny's transcripts
                 </span>
               )}
             </div>
@@ -196,6 +203,22 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Action buttons (e.g. Unsupported Domain -> Answer from general knowledge) */}
+            {message.actions && Array.isArray(message.actions) && message.actions.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-stone-100 dark:border-stone-800 flex flex-wrap gap-2">
+                {message.actions.map((act, i) => (
+                  <button
+                    key={i}
+                    onClick={() => onAction && onAction(act)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-lenny-600 hover:bg-lenny-700 text-white shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <span>{act.label}</span>
+                    <span>→</span>
+                  </button>
+                ))}
               </div>
             )}
           </div>

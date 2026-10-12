@@ -285,4 +285,40 @@ Executed against local Ollama running `qwen2.5:3b` on AMD CPU:
 - Documented "Get the transcripts" step in `README.md` with exact path `data/transcripts/episodes/{slug}/transcript.md`.
 - Added calm banner in `App.tsx` when `episodes_loaded === 0`.
 
+---
+
+## 10. Part 2: Deterministic Routing & General Knowledge Support (2026-10-12)
+
+### 10.1 Deterministic Intent & Route Classification (`agent/router.py`)
+- **Requirement**: Answer general/normal questions (recipes, coding, trivia, sports) and pleasantries without breaking strictly grounded podcast answers or adding extra LLM routing round-trips.
+- **Decision**: Implemented zero-latency deterministic routing in `backend/app/agent/router.py`:
+  - `smalltalk`: Regex-based fast classifier for greetings, thanks, capabilities, identity ("who are you"), and help queries. Emits instant warm canned replies. Added small token delay (`15ms`) in `stream_message` to prevent TCP chunk coalescing and UI render starvation.
+  - `grounded`: Podcast/growth/product domain queries with supported retrieval chunks. Answers strictly grounded with verified `[S#]` citations and deep links.
+  - `unsupported_domain`: Matches domain keywords (retention, pricing, activation, PMF, churn, CAC, hiring, etc.) but returns zero supported chunks from transcripts. Immediately abstains with calm refusal ("The transcripts I have don't support an answer to this...") and attaches an interactive action button `[{"type": "answer_general", "label": "Answer from general knowledge", "prompt": "..."}]` without burning LLM inference tokens.
+  - `general`: Non-domain queries (cooking, sports, code, trivia, math) or explicit intent override (`intent: "general"`). Dispatches directly to LLM with `GENERAL_SYSTEM_PROMPT` (concise, honest, no citations). Strips any accidental `[S#]` tags and sets `sources: []`.
+- **Verification**: 115 parametrized tests in `app/tests/test_router.py` covering greetings, edge queries, overrides, and edge-case punctuation.
+
+### 10.2 Message Schema Evolution & Migration (`messages.kind` & `messages.actions`)
+- **Problem**: Need to distinguish message nature (answer vs. abstain vs. error vs. smalltalk vs. general) and store one-click follow-up action buttons without conflating them with user intent or error strings. Also need to ensure abstentions and errors are never fed back as conversational LLM history.
+- **Decision**:
+  - Migration `0006_add_message_kind_and_actions.py`: Added `kind` (`VARCHAR`, nullable=False, default `'answer'`) and `actions` (`JSONB`, nullable=True) columns to `messages` table. Full downgrade support implemented.
+  - Updated SQLAlchemy model `Message` and Pydantic schemas `MessageRead`, `MessageCreate` (supporting `intent: Literal["qa", "essay", "artifact", "general"]`).
+  - History filtering in `services/chat.py`: Exclude messages with `kind in ("error", "abstain", "smalltalk")` or `error_class is not None` when formatting prior conversation history for LLM generation context.
+
+### 10.3 Refusal Artifact Prevention
+- **Problem**: When a user requested an essay or HTML artifact on an unsupported domain topic, the system previously generated an artifact containing the refusal message as its body.
+- **Decision**: Guarded artifact generation: artifacts are created only when `not error_class and not should_abstain and intent in ("essay", "artifact") and final_content`. If retrieval lacks support, an abstain message with the "Answer from general knowledge" action button is returned, leaving `artifact = None`.
+
+### 10.4 Directive Stopwords in Retrieval Query Builder
+- **Problem**: Queries like `"Write a ship 30 essay on retention"` failed full-text search because prompt directive words (`"write"`, `"ship"`, `"30"`, `"essay"`) were treated as search keywords, pushing topic terms below the search threshold.
+- **Decision**: Added task directive words (`"write"`, `"ship"`, `"30"`, `"essay"`, `"article"`, `"widget"`, `"calculator"`, `"page"`, `"mockup"`, `"interactive"`) to `COMMON_STOPWORDS` in `services/query_builder.py` and `services/retrieval.py`. Standalone domain terms are extracted accurately.
+
+### 10.5 SSE Protocol Extension & Frontend Resilience
+- **Decision**:
+  - SSE `start` event: Additive field `route: str`.
+  - SSE `done` event: Additive fields `actions: list` and `route: str`.
+  - SSE client (`web/src/api/client.ts`): Process remaining buffer on EOF (`processBlock(buffer)`) and join multi-line `data:` fields with `\n` to prevent truncated `done` event payloads.
+  - UI (`ChatMessage.tsx`): Rendered neutral badge `"General answer · not from Lenny's transcripts"` for `kind === 'general'` and rendered interactive buttons for `message.actions`.
+
+
 

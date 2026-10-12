@@ -26,7 +26,7 @@ class Source(BaseModel):
 
 class MessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20000)
-    intent: Literal["qa", "essay", "artifact"] | None = None
+    intent: Literal["qa", "essay", "artifact", "general"] | None = None
     artifact_format: Literal["markdown", "html"] | None = None
 
     @field_validator("content")
@@ -51,6 +51,8 @@ class MessageRead(BaseModel):
     model: str | None = None
     intent: str | None = None
     error_class: str | None = None
+    kind: str | None = "answer"
+    actions: list[dict[str, Any]] | None = None
     artifact: ArtifactSummary | None = None
     created_at: datetime
 

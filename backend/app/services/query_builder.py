@@ -29,6 +29,7 @@ COMMON_STOPWORDS = {
     "than", "too", "very", "can", "will", "just", "dont", "shouldnt", "cant",
     "without", "conduct", "employed", "using", "use", "used", "make", "made",
     "by", "of", "tell", "me", "more", "like", "say", "said", "says",
+    "write", "ship", "30", "essay", "article", "widget", "calculator", "page", "mockup", "interactive",
 }
 
 
