@@ -98,3 +98,36 @@ This document records architectural decisions, identified pitfalls, failed attem
 - **Failed Attempt 2 (Salient Term Extraction Over-inclusion)**: `test_extract_salient_terms` failed because the word "say" was extracted as a salient term, filling the 6-term budget and pushing "airbnb" off the list.
   - *Fix*: Added common conversational reporting verbs (`"say"`, `"said"`, `"says"`) to `COMMON_STOPWORDS`.
 
+---
+
+## 3. Part 2: Artifacts (Safe & Useful) (2026-10-12)
+
+### 3.1 Block Extraction & Boilerplate Wrapping (2.1)
+- **Problem**: When models generated artifacts (HTML widgets or Ship 30 essays), conversational preambles ("Here is an interactive calculator...") and outro commentary were saved directly into the artifact body, corrupting visual rendering and markdown parsing.
+- **Decision**: Implemented `extract_artifact_content(raw_text, format)`:
+  - Multiline, indentation-tolerant regex extraction targeting the first fenced ````html ... ```` or ````markdown ... ```` code block.
+  - If no block is found for HTML artifacts, wraps the raw text in clean semantic HTML boilerplate (`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:system-ui;padding:1.5rem;color:#111;line-height:1.6;}</style></head><body>...</body></html>`) prior to sanitization.
+  - Markdown artifacts extract the first fenced markdown block, stripping out introductory chatter.
+
+### 3.2 Server-Side Sanitizer Hardening (2.2)
+- **Problem**: The original `sanitizer.py` whitelisted `<style>`, permitted inline CSS `style` attributes, and allowed `data:` URLs. Inline styles can execute data exfiltration attacks via CSS `background: url(...)`, and unconstrained style tags can alter page layout.
+- **Decision**: Hardened `backend/app/services/sanitizer.py`:
+  - Tag whitelist strictly limited to safe semantic elements: `a, b, blockquote, br, code, div, em, h1..h6, hr, i, img, li, ol, p, pre, span, strong, table, tbody, td, th, thead, tr, ul, section, article, header, footer, main, dl, dt, dd`.
+  - Disallows and strips: `<style>`, `<script>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>`, `<svg>`, `<math>`.
+  - Strips all `on*` inline event handlers and all `style` attributes.
+  - Strips `data:` and `javascript:` schemes; permits only `http`, `https`, `mailto`.
+  - Enforces `link_rel="noopener noreferrer"` on all `<a>` tags.
+  - Fail-closed defense: If `nh3` raises any parsing or memory error, sanitization fails closed and returns `<p>Artifact content could not be displayed safely.</p>`.
+  - Added unit test suite `test_sanitizer.py` verifying full neutralization across an 8-vector XSS test corpus.
+
+### 3.3 Locked Frontend Sandbox (2.3)
+- **Problem**: `ArtifactViewer.tsx` rendered HTML inside `<iframe sandbox="allow-scripts">`, which allowed execution of arbitrary JavaScript inside the frame.
+- **Decision**:
+  - Removed all sandbox permissions, locking the iframe to strictly empty `sandbox=""` (disallowing scripts, popups, forms, and same-origin access).
+  - Injected Content-Security-Policy meta tag into the iframe `<head>`: `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: ; style-src 'unsafe-inline';">`. This guarantees that even within the sandboxed iframe, any attempted outbound network requests are blocked.
+
+### 3.4 Failed Attempts & Debugging
+- **Failed Attempt (`nh3` `link_rel` Conflict)**: Sanitizer tests initially threw `ValueError: "rel" attribute is not allowed for tag "a" when link_rel is set; pass link_rel=None to manage the "rel" attribute directly`.
+  - *Fix*: Removed `"rel"` from `ALLOWED_ATTRIBUTES["a"]` since `nh3` manages the `rel="noopener noreferrer"` attribute automatically when `link_rel` is passed.
+
+

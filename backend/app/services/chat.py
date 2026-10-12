@@ -43,7 +43,7 @@ from app.services.grounding import (
 )
 from app.services.query_builder import build_retrieval_query
 from app.services.retrieval import RetrievalService
-from app.services.sanitizer import sanitize_html
+from app.services.sanitizer import extract_artifact_content, sanitize_html
 
 logger = logging.getLogger(__name__)
 
@@ -356,9 +356,7 @@ class ChatService:
             if not error_class and intent in ("essay", "artifact") and final_content:
                 art_fmt = artifact_format or ("markdown" if intent == "essay" else "html")
                 art_title = _extract_title(final_content, f"Lenny Growth {intent.capitalize()}")
-                art_body = final_content
-                if art_fmt == "html":
-                    art_body = sanitize_html(art_body)
+                art_body = extract_artifact_content(final_content, art_fmt)
 
                 artifact_obj = await art_repo.create(
                     session_id=session.id,
@@ -657,9 +655,7 @@ class ChatService:
             if not error_class and intent in ("essay", "artifact") and final_content:
                 art_fmt = artifact_format or ("markdown" if intent == "essay" else "html")
                 art_title = _extract_title(final_content, f"Lenny Growth {intent.capitalize()}")
-                art_body = final_content
-                if art_fmt == "html":
-                    art_body = sanitize_html(art_body)
+                art_body = extract_artifact_content(final_content, art_fmt)
 
                 artifact_obj = await art_repo.create(
                     session_id=session.id,

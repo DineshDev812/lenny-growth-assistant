@@ -32,6 +32,17 @@ export const ArtifactViewer: React.FC<ArtifactViewerProps> = ({ artifact, isOpen
     return { __html: sanitized };
   };
 
+  const prepareSandboxedHtml = (content: string) => {
+    const cspMeta = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: ; style-src 'unsafe-inline';">`;
+    if (content.includes('<head>')) {
+      return content.replace('<head>', `<head>${cspMeta}`);
+    }
+    if (content.includes('<html>')) {
+      return content.replace('<html>', `<html><head>${cspMeta}</head>`);
+    }
+    return `<!DOCTYPE html><html><head>${cspMeta}</head><body>${content}</body></html>`;
+  };
+
   return (
     <div className="w-full md:w-[480px] lg:w-[560px] h-full flex flex-col bg-white border-l border-stone-200/90 shadow-xl z-20 transition-all duration-200">
       {/* Header */}
@@ -113,7 +124,7 @@ export const ArtifactViewer: React.FC<ArtifactViewerProps> = ({ artifact, isOpen
         <div className="px-4 py-2 bg-emerald-50/70 border-b border-emerald-100 flex items-center gap-2 text-[11px] text-emerald-800">
           <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
           <span>
-            <strong>Isolated Sandbox:</strong> Sanitized server-side with <code>nh3</code> and isolated in a sandboxed iframe.
+            <strong>Locked Sandbox:</strong> Sanitized server-side with <code>nh3</code>, restricted by CSP, and isolated inside an empty <code>sandbox=&quot;&quot;</code> iframe.
           </span>
         </div>
       )}
@@ -130,8 +141,8 @@ export const ArtifactViewer: React.FC<ArtifactViewerProps> = ({ artifact, isOpen
             <div className="w-full h-full min-h-[450px] border border-stone-200 rounded-lg overflow-hidden bg-white shadow-inner">
               <iframe
                 title={artifact.title}
-                srcDoc={artifact.content}
-                sandbox="allow-scripts"
+                srcDoc={prepareSandboxedHtml(artifact.content)}
+                sandbox=""
                 className="w-full h-full min-h-[450px] border-none"
               />
             </div>
