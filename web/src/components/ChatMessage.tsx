@@ -121,7 +121,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 
           {/* Message Content Bubble */}
           <div className="bg-white dark:bg-stone-900 border border-stone-200/90 dark:border-stone-800 rounded-2xl rounded-tl-sm p-4 md:p-5 shadow-2xs transition-colors">
-            {message.error_class ? (
+            {message.error_class && message.error_class !== 'grounding_failed' && message.error_class !== 'empty_retrieval' ? (
               <div className="mb-3 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-lg flex items-start gap-2 text-rose-800 dark:text-rose-300 text-xs">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
                 <div>
