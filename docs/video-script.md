@@ -52,7 +52,7 @@
 > 
 > When I ask for a Ship 30 essay on onboarding loops, the assistant generates the essay and automatically opens our Claude Artifacts-style side pane.
 > 
-> For interactive tools, like this HTML churn and growth calculator, the generated code runs inside an isolated iframe sandbox with `sandbox='allow-scripts'`. Combined with server-side sanitization using Rust's `nh3`, untrusted HTML cannot access parent cookies or storage."
+> For interactive tools, like this HTML churn and growth calculator, the generated code runs inside a locked iframe sandbox with `sandbox=""` and a strict Content-Security-Policy header. Combined with server-side sanitization using Rust's `nh3`, untrusted HTML is completely isolated from accessing parent cookies, local storage, or network endpoints."
 
 ---
 
