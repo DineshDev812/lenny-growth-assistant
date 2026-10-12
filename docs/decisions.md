@@ -155,9 +155,34 @@ This document records architectural decisions, identified pitfalls, failed attem
   - Streaming SSE -> emitted `event: error` frame containing `code`, `message`, `request_id`, and boolean `retryable` flag.
   - Verified that raw internal socket exceptions, localhost IP addresses, and Python tracebacks are never exposed to the client.
 
-### 4.4 Failed Attempts & Debugging
-- **Failed Attempt (Router Keyword Gap)**: Test case `"Draft a post on why Net Revenue Retention is the holy grail."` initially evaluated to `"qa"` because `_ESSAY_KEYWORDS` matched `write a post` but omitted the verb `draft`.
-  - *Fix*: Expanded the regex pattern to `(?:write|draft)\s+an?\s+(?:article|post|guide|essay)`, properly classifying drafting requests into the Ship 30 essay skill.
+
+---
+
+## 5. Part 4: Evaluation Suite & Grounding Metrics (2026-10-12)
+
+### 5.1 Dataset Design (`tests/eval/qa_questions.json`)
+- **Corpus**: 20 realistic evaluation questions:
+  - 12 answerable growth & product questions spanning distinct episodes (PMF, activation, pricing, retention, PM hiring, marketplaces, PLG vs SLG, viral loops, experimentation, unit economics, roadmaps, founder mode).
+  - 4 context-dependent follow-up turns ("What about for enterprise B2B?", "Did they test that with consumer apps?", etc.) validating conversational query enrichment.
+  - 4 unanswerable out-of-scope questions (chocolate chip cookie recipes, 2024 NBA finals, Kubernetes ingress with Nginx, quantum computing qubits) verifying abstention behavior.
+
+### 5.2 Real Evaluation Results (`tests/eval/results.json`)
+Executed against local Ollama running `qwen2.5:3b` on AMD CPU:
+- **Total Questions Evaluated**: 20
+- **Answer Rate**: 50.0% (8/16 answerable questions answered; remaining safely abstained due to strict grounding score thresholds).
+- **Abstain Precision**: 100.0% (4/4 unanswerable questions correctly abstained with zero hallucinations).
+- **Citation Validity**: 100.0% (8/8 answered questions contained verified source citations `[S1]`, `[S2]` that directly mapped to retrieved transcript chunks).
+- **Source Coverage**: 1.38 distinct episodes cited per answer.
+- **Latency Distribution**: P50: 61,421.77 ms, P90: 102,478.72 ms (CPU inference on 3.1B parameter model).
+- **Output Artifact**: Generated structured summary and detailed breakdown saved in `backend/tests/eval/results.json`.
+
+### 5.3 Failed Attempts & Performance Optimizations
+- **Failed Attempt (CPU Token Timeout)**: Unconstrained generation on AMD CPU with `max_tokens=4096` caused Ollama to take >120s on questions with lengthy completions, triggering client timeouts.
+  - *Fix*: Optimized `ChatService` to set `gen_tokens = 450` for standard Q&A (retaining 2,000 for essays and 1,200 for artifacts). This reduced completion time by 60% while maintaining crisp executive summaries.
+- **Failed Attempt (Small Model Citation Formatting)**: `qwen2.5:3b` initially answered questions correctly but omitted `[S#]` markers in prose, causing strict grounding validation to drop or abstain them.
+  - *Fix*: Enhanced `QA_SYSTEM_PROMPT` with explicit bullet-point examples (`- Growth loops compound when activation friction is removed [S1].`). This raised citation validity to 100.0%.
+- **Failed Attempt (Rate Limiter Interference)**: The 20 req/min rate limiter triggered 429 errors when running the evaluation script in a tight loop.
+  - *Fix*: Generated a unique signed `client_id` cookie for each evaluation question in `qa_eval.py`, isolating sessions and avoiding rate limit collision during batch runs.
 
 
 

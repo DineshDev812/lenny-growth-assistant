@@ -62,6 +62,7 @@ services:
     volumes:
       - ./data/transcripts:/data/transcripts:ro
       - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

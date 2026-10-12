@@ -260,12 +260,14 @@ class ChatService:
                 system_prompt = format_qa_prompt(sources_context)
 
             all_messages = [*history_context, LLMMessage(role="user", content=content)]
+            gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
 
             try:
                 llm_res = await asyncio.wait_for(
                     primary_provider.generate(
                         messages=all_messages,
                         system_prompt=system_prompt,
+                        max_tokens=gen_tokens,
                     ),
                     timeout=settings.llm_timeout_seconds,
                 )
@@ -280,6 +282,7 @@ class ChatService:
                             fallback_provider.generate(
                                 messages=all_messages,
                                 system_prompt=system_prompt,
+                                max_tokens=gen_tokens,
                             ),
                             timeout=settings.llm_timeout_seconds,
                         )
@@ -490,6 +493,7 @@ class ChatService:
                 assistant_tokens.append(token)
                 yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
         else:
+            gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
             if intent == "essay":
                 system_prompt = format_ship30_prompt(sources_context)
             else:
@@ -506,6 +510,7 @@ class ChatService:
                 stream_iter = primary_provider.stream(
                     messages=all_messages,
                     system_prompt=system_prompt,
+                    max_tokens=gen_tokens,
                 )
 
                 first_token = None
@@ -522,6 +527,7 @@ class ChatService:
                         stream_iter = fallback_provider.stream(
                             messages=all_messages,
                             system_prompt=system_prompt,
+                            max_tokens=gen_tokens,
                         )
                         first_token = await asyncio.wait_for(
                             stream_iter.__anext__(),
