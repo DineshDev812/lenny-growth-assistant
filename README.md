@@ -1,13 +1,13 @@
 # The Lenny Growth Assistant
 
-[![Tests](https://img.shields.io/badge/pytest-89%20passed%2C%200%20failed-brightgreen)](https://github.com/DineshDev812/lenny-growth-assistant)
-[![Evaluation Benchmark](https://img.shields.io/badge/eval%20benchmark-20%2F20%20(100%25)-brightgreen)](https://github.com/DineshDev812/lenny-growth-assistant)
+[![Tests](https://img.shields.io/badge/pytest-152%20passed%2C%200%20failed-brightgreen)](https://github.com/DineshDev812/lenny-growth-assistant)
+[![Evaluation Benchmark](https://img.shields.io/badge/eval%20benchmark-100%25%20abstain%20%7C%20100%25%20citations-brightgreen)](https://github.com/DineshDev812/lenny-growth-assistant)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg?logo=postgresql)](https://www.postgresql.org)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react)](https://react.dev)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20(qwen2.5%3A3b)-orange)](https://ollama.com)
 
-A full-stack, production-grade AI assistant grounded exclusively in 300+ episodes and transcripts of **Lenny's Podcast**. Built with FastAPI, PostgreSQL full-text search, an extensible agent layer with specialized skills (Ship 30 for 30 essays, sandboxed HTML artifacts), and a modern React + Tailwind web UI.
+A full-stack, production-grade AI assistant grounded exclusively in 300+ episodes and transcripts of **Lenny's Podcast**. Built with FastAPI, PostgreSQL full-text search, an extensible agent layer with specialized skills (Ship 30 for 30 essays, sandboxed HTML artifacts), and an editorial React + Tailwind web UI.
 
 ---
 
@@ -34,10 +34,11 @@ A full-stack, production-grade AI assistant grounded exclusively in 300+ episode
 1. **Strictly Grounded Q&A**: Answers are synthesized **only** from transcript excerpts. If the corpus does not cover a topic, the assistant cleanly refuses with zero hallucinations.
 2. **Deterministic Source Traceability**: Every claim carries citation tags (`[S1]`, `[S2]`) with guest names, episode titles, verbatim quotes, and **clickable YouTube deep links** (`&t=SECONDS`).
 3. **Dedicated Ship 30 for 30 Essay Skill**: A purpose-built agent skill that turns transcript insights into high-engagement essays (~1,250 words, hook, narrative progression, headings, bullets, and selective bolding).
-4. **Claude Artifacts-Style Split Pane**: Real-time rendering of generated Markdown and complete HTML/CSS tools side-by-side with the chat stream.
-5. **Defense-in-Depth HTML Sandbox Isolation**: Generated untrusted HTML is sanitized server-side via Rust-powered `nh3` and isolated in a restricted browser iframe (`sandbox="allow-scripts"`).
+4. **Claude Artifacts-Style Split Pane**: Real-time rendering of generated Markdown and complete HTML/CSS tools side-by-side with the chat stream, complete with source code viewer, 1-click copy, download button, and fullscreen modal toggle.
+5. **Defense-in-Depth HTML Sandbox Isolation**: Generated untrusted HTML is sanitized server-side via Rust-powered `nh3` (stripping inline event handlers, style attributes, and untrusted schemes) and isolated in an empty `sandbox=""` browser iframe with strict Content-Security-Policy headers.
 6. **Zero Code Change Model Switching**: Switch between **local Ollama** (`qwen2.5:3b`) on host machine and **Anthropic Claude** purely via `.env`. Read-only provider badge visible in UI.
-7. **Anonymous Cookie Sessions**: Zero-friction onboarding using HMAC-SHA256 signed `client_id` cookies and PostgreSQL session isolation.
+7. **Editorial UX & Polish**: Temporal session grouping ("Today", "Yesterday", "Previous 7 Days", "Older"), inline rename, delete confirmation with cascade deletion, dark mode toggle, global shortcuts (`⌘K`/`Ctrl+K`, `Esc`), and copy response button.
+8. **Anonymous Cookie Sessions**: Zero-friction onboarding using HMAC-SHA256 signed `client_id` cookies and PostgreSQL session isolation.
 
 ---
 
@@ -179,43 +180,50 @@ When a user asks for interactive calculators, frameworks, or visual widgets:
 
 ---
 
-## Evaluation Suite (20 Questions, 100% Score)
+## Evaluation Suite & Grounding Benchmark
 
-We built an automated 20-question grounding benchmark (`backend/tests/eval/eval_set.py`):
-- **15 In-Corpus Questions**: Product-market fit, activation rates, pricing, retention loops, founder mode, PLG transition, marketplace metrics, etc.
-- **5 Out-of-Corpus Questions**: Aerodynamics of Boeing 777, aspirin chemical synthesis, Neapolitan pizza recipe, Napoleon at Waterloo 1815, nonsense control query.
+An automated 20-question evaluation suite (`backend/tests/eval/qa_eval.py` + `qa_questions.json`) validates end-to-end question answering, follow-ups, and abstention behavior against the live Ollama model on CPU:
+- **12 Answerable Growth Questions**: Topics spanning product-market fit, activation benchmarks, pricing experiments, viral loops, marketplace liquidity, unit economics, PM hiring, and founder mode across distinct episodes.
+- **4 Multi-Turn Follow-Ups**: Context-dependent queries ("What about for enterprise B2B?", "Did they test that with consumer apps?") validating conversational query enrichment.
+- **4 Unanswerable Out-of-Corpus Questions**: Control queries on cooking recipes, sports, devops/Kubernetes, and physics verifying strict abstention without hallucinations.
 
-Run the benchmark inside the backend container:
+Run the evaluation suite inside the backend container:
 ```bash
-docker compose exec backend python -m tests.eval.eval_set
+docker compose exec -T backend python -m tests.eval.qa_eval
 ```
 
-### Benchmark Results:
+### Benchmark Results (Evaluated on local Ollama `qwen2.5:3b` on CPU):
 ```
-======================================================================
-LENNY GROWTH ASSISTANT — 20-QUESTION GROUNDING & RETRIEVAL BENCHMARK
-======================================================================
-  • In-Corpus Retrieval Coverage: 15/15 (100.0%)
-  • In-Corpus Topic Relevance:    15/15 (100.0%)
-  • Out-of-Corpus Refusal Rate:   5/5 (100.0%)
-  • Overall Benchmark Score:      20/20 (100.0%)
-======================================================================
+===================================================================================================================
+EVALUATION SUMMARY:
+  • Total Questions:       20
+  • Answer Rate:           50.0% (8/16 answered; remaining abstained due to strict grounding threshold)
+  • Abstain Precision:     100.0% (4/4 unanswerable questions correctly abstained with zero hallucinations)
+  • Citation Validity:     100.0% (8/8 answered questions contained verified source citations [S1], [S2])
+  • Source Coverage:       1.38 distinct episodes cited per answer
+  • Latency P50:           61,421.77 ms (local CPU inference on 3.1B parameter model)
+  • Latency P90:           102,478.72 ms
+===================================================================================================================
+Results saved to backend/tests/eval/results.json
 ```
 
 ---
 
 ## Running Automated Tests
 
-Run the full backend test suite (isolated in temporary test database):
+Run the comprehensive pytest test suite (isolated in temporary test database):
 ```bash
-docker compose exec backend pytest -v
+docker compose exec -T backend pytest -v
 ```
-**Results**: `89 passed, 0 failed in 117s`.
+**Results**: `152 passed, 0 failed in 54s`.
 
-Run the retrieval sanity check against real indexed episodes:
-```bash
-docker compose exec backend python -m tests.eval.retrieval_check
-```
+Test coverage spans:
+- **Routing & Intent Classification**: 32 parametrized test cases (`tests/test_router.py`).
+- **Streaming & Multi-Turn Persistence**: Database session commits and monotonic message ordering (`tests/api/test_chat_persistence.py`).
+- **Error Mapping & Leakage Prevention**: 503/504 status codes and SSE error frames (`tests/api/test_error_mapping.py`).
+- **Grounding & Citation Normalization**: Citation regex validation, URL stripping, prompt injection defenses (`tests/services/test_grounding.py`).
+- **HTML Sanitization & Safety**: Rust `nh3` XSS neutralization corpus (`tests/services/test_sanitizer.py`).
+- **Ingestion & Retrieval**: Weighted TSV search, timestamp deep links, idempotent reindexing (`tests/services/test_retrieval.py`, `test_ingestion.py`).
 
 ---
 

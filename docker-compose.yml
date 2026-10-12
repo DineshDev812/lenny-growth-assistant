@@ -48,10 +48,21 @@ services:
       CHUNK_OVERLAP_TOKENS: ${CHUNK_OVERLAP_TOKENS:-60}
       RETRIEVAL_MIN_SCORE: ${RETRIEVAL_MIN_SCORE:-0.03}
       RETRIEVAL_FALLBACK_MIN_SCORE: ${RETRIEVAL_FALLBACK_MIN_SCORE:-0.12}
+      RETRIEVAL_MIN_ANSWER_SCORE: ${RETRIEVAL_MIN_ANSWER_SCORE:-0.08}
+      GROUNDING_STRICT: ${GROUNDING_STRICT:-true}
+      CONTEXT_TOKEN_BUDGET: ${CONTEXT_TOKEN_BUDGET:-3000}
+      CHAT_HISTORY_MESSAGES: ${CHAT_HISTORY_MESSAGES:-6}
+      LLM_FIRST_TOKEN_TIMEOUT_SECONDS: ${LLM_FIRST_TOKEN_TIMEOUT_SECONDS:-60}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-120}
+      MODEL_FALLBACK: ${MODEL_FALLBACK:-none}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-20}
+      MAX_MESSAGE_CHARS: ${MAX_MESSAGE_CHARS:-4000}
     ports:
       - "8000:8000"
     volumes:
       - ./data/transcripts:/data/transcripts:ro
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

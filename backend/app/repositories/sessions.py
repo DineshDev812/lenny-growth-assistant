@@ -54,3 +54,7 @@ class SessionRepository:
         await self._db.flush()
         await self._db.refresh(session)
         return session
+
+    async def delete(self, session: Session) -> None:
+        await self._db.delete(session)
+        await self._db.flush()

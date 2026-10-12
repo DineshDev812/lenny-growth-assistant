@@ -40,7 +40,16 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = Field(default=60, ge=0)
     retrieval_min_score: float = Field(default=0.03, ge=0.0)
     retrieval_fallback_min_score: float = Field(default=0.12, ge=0.0)
+    retrieval_min_answer_score: float = Field(default=0.08, ge=0.0)
+    grounding_strict: bool = Field(default=True)
+    context_token_budget: int = Field(default=3000, ge=500)
+    chat_history_messages: int = Field(default=6, ge=0)
+    llm_first_token_timeout_seconds: float = Field(default=60.0, ge=5.0)
+    llm_timeout_seconds: float = Field(default=120.0, ge=10.0)
     llm_timeout: float = Field(default=180.0, ge=10.0)
+    model_fallback: Literal["none", "ollama", "anthropic"] = Field(default="none")
+    rate_limit_per_minute: int = Field(default=20, ge=1)
+    max_message_chars: int = Field(default=4000, ge=100)
 
     @field_validator("anthropic_api_key", "ingest_token", mode="before")
     @classmethod

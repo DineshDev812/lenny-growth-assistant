@@ -163,6 +163,19 @@ def test_streaming_sse_messages(client: TestClient) -> None:
     assert "event: token" in text
     assert "event: done" in text
 
+    # Verify streaming persistence (1.1 bug fix verification):
+    # Both user and assistant messages must be saved in the database!
+    get_res = client.get(f"/api/sessions/{session_id}")
+    assert get_res.status_code == 200
+    session_data = get_res.json()
+    assert len(session_data["messages"]) == 2
+    assert session_data["messages"][0]["role"] == "user"
+    assert session_data["messages"][0]["content"] == "What is activation?"
+    assert session_data["messages"][1]["role"] == "assistant"
+    assert len(session_data["messages"][1]["content"]) > 0
+    assert session_data["messages"][1]["provider"]
+    assert session_data["messages"][1]["model"]
+
 
 def test_essay_and_artifact_flow(client: TestClient) -> None:
     created = client.post("/api/sessions", json={})
@@ -190,3 +203,56 @@ def test_essay_and_artifact_flow(client: TestClient) -> None:
     denied = client.get(f"/api/artifacts/{art_id}")
     assert denied.status_code == 404
     assert denied.json()["error"]["code"] == "not_found"
+
+
+def test_delete_session_and_cascade(client: TestClient) -> None:
+    created = client.post("/api/sessions", json={})
+    session_id = created.json()["id"]
+
+    client.post(
+        f"/api/sessions/{session_id}/messages",
+        json={"content": "Hello to be deleted"},
+    )
+
+    del_res = client.delete(f"/api/sessions/{session_id}")
+    assert del_res.status_code == 204
+
+    get_res = client.get(f"/api/sessions/{session_id}")
+    assert get_res.status_code == 404
+    assert get_res.json()["error"]["code"] == "not_found"
+
+    # Delete non-existent or other user session returns 404
+    client.cookies.clear()
+    del_other = client.delete(f"/api/sessions/{session_id}")
+    assert del_other.status_code == 404
+
+
+def test_message_too_long(client: TestClient) -> None:
+    created = client.post("/api/sessions", json={})
+    session_id = created.json()["id"]
+
+    long_text = "a" * 4001
+    res = client.post(
+        f"/api/sessions/{session_id}/messages",
+        json={"content": long_text},
+    )
+    assert res.status_code == 400
+    body = res.json()
+    assert body["error"]["code"] == "message_too_long"
+
+
+def test_rate_limiting(client: TestClient) -> None:
+    from app.core.middleware import reset_rate_limits
+    reset_rate_limits()
+
+    created = client.post("/api/sessions", json={})
+    assert created.status_code == 201
+
+    responses = [client.get("/api/sessions") for _ in range(25)]
+    status_codes = [r.status_code for r in responses]
+    assert 429 in status_codes
+    rate_limited_res = next(r for r in responses if r.status_code == 429)
+    assert rate_limited_res.headers.get("retry-after") == "60"
+    assert rate_limited_res.json()["error"]["code"] == "rate_limited"
+
+    reset_rate_limits()
