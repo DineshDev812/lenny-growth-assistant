@@ -314,13 +314,28 @@ export const App: React.FC = () => {
           onDone: (doneData) => {
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === tempAssistantId ? doneData.assistant_message : m
-              )
+                m && m.id === tempAssistantId
+                  ? {
+                      ...m,
+                      id: doneData.message_id || doneData.assistant_message?.id || m.id,
+                      sources:
+                        doneData.sources && doneData.sources.length > 0
+                          ? doneData.sources
+                          : m.sources,
+                      error_class: doneData.error_class || m.error_class,
+                      artifact: doneData.artifact || doneData.assistant_message?.artifact || m.artifact,
+                    }
+                  : m
+              ).filter(Boolean)
             );
-            if (doneData.artifact) {
-              setActiveArtifact(doneData.artifact);
-              setArtifactViewerOpen(true);
+            if (doneData.artifact?.id) {
+              api.getArtifact(doneData.artifact.id).then((fullArt) => {
+                setActiveArtifact(fullArt);
+                setArtifactViewerOpen(true);
+              }).catch(console.error);
             }
+            setIsStreaming(false);
+            abortControllerRef.current = null;
             api.listSessions().then(setSessions).catch(console.error);
           },
         },
@@ -387,7 +402,7 @@ export const App: React.FC = () => {
                 <EmptyState onSelectPrompt={handleSendMessage} />
               ) : (
                 <div className="max-w-4xl mx-auto w-full">
-                  {messages.map((message, idx) => {
+                  {messages.filter(Boolean).map((message, idx) => {
                     const isLastMessage = idx === messages.length - 1;
                     return (
                       <ChatMessage

@@ -1,4 +1,4 @@
-import { Artifact, MetaResponse, Session, Source, Message } from '../types';
+import { Artifact, ArtifactSummary, MetaResponse, Session, Source, Message } from '../types';
 
 export class ApiError extends Error {
   code: string;
@@ -99,7 +99,14 @@ export const api = {
       onToken?: (token: string) => void;
       onArtifact?: (art: { id: string; format: 'markdown' | 'html'; title: string }) => void;
       onError?: (err: { code: string; message: string; request_id?: string; retryable?: boolean }) => void;
-      onDone?: (doneData: { assistant_message: Message; artifact?: Artifact | null }) => void;
+      onDone?: (doneData: {
+        message_id?: string;
+        intent?: string;
+        sources?: Source[];
+        artifact?: ArtifactSummary | null;
+        error_class?: string | null;
+        assistant_message?: Message;
+      }) => void;
     },
     signal?: AbortSignal
   ): Promise<void> {

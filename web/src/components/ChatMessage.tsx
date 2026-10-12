@@ -17,6 +17,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onOpenSource,
   onOpenArtifact,
 }) => {
+  if (!message) return null;
   const [copied, setCopied] = useState(false);
   const isUser = message.role === 'user';
 
