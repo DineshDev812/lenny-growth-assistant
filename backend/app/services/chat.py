@@ -52,6 +52,21 @@ EMPTY_RETRIEVAL_MESSAGE = (
     "Try asking about a product, growth, or career topic covered on Lenny's Podcast."
 )
 
+_GREETING_RE = re.compile(
+    r"^(hi|hello|hey|hey\s+there|good\s+(?:morning|afternoon|evening)|howdy|sup|yo)[!.,?\s]*$",
+    re.IGNORECASE,
+)
+
+GREETING_MESSAGE = (
+    "Hey! I'm **The Lenny Growth Assistant**, grounded in 300+ Lenny's Podcast episodes.\n\n"
+    "Here are some great questions to ask me:\n"
+    "• *'What are the most reliable indicators of product-market fit?'*\n"
+    "• *'What is Lenny's framework for customer retention?'*\n"
+    "• *'How did Figma find its first 1,000 users?'*\n"
+    "• *'What did Brian Chesky say about design-led companies?'*\n\n"
+    "You can also ask me to **write a Ship 30 for 30 essay** or **generate an interactive HTML widget**!"
+)
+
 _TITLE_MAX = 60
 
 
@@ -189,6 +204,32 @@ class ChatService:
             await db_a.commit()
             user_msg_id = user_msg.id
 
+        # Check greeting shortcut
+        if _GREETING_RE.match(content.strip()):
+            async with self._session_factory() as db_c:
+                msg_repo = MessageRepository(db_c)
+                asst_msg = await msg_repo.create(
+                    session_id=session_id,
+                    role="assistant",
+                    content=GREETING_MESSAGE,
+                    sources=[],
+                    intent=intent,
+                )
+                sess_repo = SessionRepository(db_c)
+                session = await sess_repo.get_owned(session_id, client_id)
+                if session:
+                    await sess_repo.touch(session)
+                user_msg_final = await msg_repo._db.get(Message, user_msg_id)
+                asst_msg.artifact = None
+                if user_msg_final:
+                    user_msg_final.artifact = None
+                await db_c.commit()
+                return SendMessageResponse(
+                    user_message=MessageRead.model_validate(user_msg_final),
+                    assistant_message=MessageRead.model_validate(asst_msg),
+                    artifact=None,
+                )
+
         # -------------------------------------------------------------
         # Phase B (own session, read-only, CLOSE before LLM): History & Retrieval
         # -------------------------------------------------------------
@@ -215,7 +256,7 @@ class ChatService:
 
             retrieval_service = RetrievalService(db_b)
             chunks, match_mode = await retrieval_service.retrieve_with_meta(
-                retrieval_query, k=4 if intent == "qa" else 6
+                retrieval_query, k=3 if intent == "qa" else 6
             )
 
         # -------------------------------------------------------------
@@ -251,7 +292,7 @@ class ChatService:
         else:
             sources, sources_context = format_source_context(
                 chunks,
-                token_budget=settings.context_token_budget,
+                token_budget=1500 if intent == "qa" else settings.context_token_budget,
                 max_chunks_per_episode=2,
             )
             if intent == "essay":
@@ -430,6 +471,37 @@ class ChatService:
         }
         yield f"event: start\ndata: {json.dumps(start_payload)}\n\n"
 
+        # Check greeting shortcut
+        if _GREETING_RE.match(content.strip()):
+            yield f"event: sources\ndata: {json.dumps({'sources': []})}\n\n"
+            for word in GREETING_MESSAGE.split(" "):
+                token = word + " "
+                yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
+            async with self._session_factory() as db_c:
+                msg_repo = MessageRepository(db_c)
+                asst_msg = await msg_repo.create(
+                    session_id=session_id,
+                    role="assistant",
+                    content=GREETING_MESSAGE,
+                    sources=[],
+                    intent=intent,
+                )
+                sess_repo = SessionRepository(db_c)
+                session = await sess_repo.get_owned(session_id, client_id)
+                if session:
+                    await sess_repo.touch(session)
+                await db_c.commit()
+                asst_id = asst_msg.id
+            done_payload = {
+                "message_id": str(asst_id),
+                "intent": intent,
+                "sources": [],
+                "artifact": None,
+                "error_class": None,
+            }
+            yield f"event: done\ndata: {json.dumps(done_payload)}\n\n"
+            return
+
         # -------------------------------------------------------------
         # Phase B (own session, read-only, CLOSE before LLM): History & Retrieval
         # -------------------------------------------------------------
@@ -454,13 +526,13 @@ class ChatService:
 
             retrieval_service = RetrievalService(db_b)
             chunks, match_mode = await retrieval_service.retrieve_with_meta(
-                retrieval_query, k=4 if intent == "qa" else 6
+                retrieval_query, k=3 if intent == "qa" else 6
             )
 
         # Format retrieved sources
         sources, sources_context = format_source_context(
             chunks,
-            token_budget=settings.context_token_budget,
+            token_budget=1500 if intent == "qa" else settings.context_token_budget,
             max_chunks_per_episode=2,
         )
 
