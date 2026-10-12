@@ -49,6 +49,7 @@ class OllamaProvider(BaseLLMProvider):
             "model": self._model,
             "messages": payload_messages,
             "stream": stream,
+            "keep_alive": "24h",
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens,

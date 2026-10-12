@@ -218,6 +218,16 @@ Executed against local Ollama running `qwen2.5:3b` on AMD CPU:
 - **Failed Attempt (Docker Network MTU Hang in Alpine)**: Running `npm install` inside Docker on Windows encountered intermittent socket drops and `Exit handler never called!`.
   - *Fix*: Optimized build pipeline: compiled production bundle locally via Vite into `web/dist`, and streamlined `web/Dockerfile` into an ultra-fast Nginx container (`COPY dist /usr/share/nginx/html`). Startup and build time dropped from >3 minutes to 0.6 seconds.
 
+---
 
+## 7. Part 7: Ollama Cold-Start Latency & Keep-Alive Resilience on CPU
 
+### 7.1 Problem & Root Cause
+- On Windows laptops without a dedicated GPU (AMD CPU only), Ollama loads model weights (~2 GB for `qwen2.5:3b`) from disk into CPU system RAM on demand.
+- Default Ollama behavior unloads models after 5 minutes of inactivity (`keep_alive: 5m`).
+- A cold model load on CPU hardware takes 60–75 seconds before generating the first token. Because `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` was previously configured to 60 seconds, a cold first request would trigger a timeout error ("I encountered an error generating an answer").
 
+### 7.2 Engineering Solution
+1. **Model Cache & Keep-Alive Lock**: Configured `"keep_alive": "24h"` in `OllamaProvider._build_payload` so once loaded, the model remains pinned in RAM and never unloads after idle periods.
+2. **Proactive Background Warm-Up**: Added an asynchronous startup hook in `app/main.py` that sends an initial warmup request to Ollama on container start. By the time the user types their first prompt, the model weights are already in memory (warm response latency is ~2.8 seconds).
+3. **Hardware-Tolerant Timeouts**: Updated `LLM_FIRST_TOKEN_TIMEOUT_SECONDS` to 120s and `LLM_TIMEOUT_SECONDS` to 240s across `config.py`, `.env.example`, and `docker-compose.yml` to safely absorb heavy CPU load.

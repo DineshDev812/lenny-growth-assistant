@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -12,7 +13,7 @@ from app.api.ingest import router as ingest_router
 from app.api.messages import router as messages_router
 from app.api.search import router as search_router
 from app.api.sessions import router as sessions_router
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import setup_logging
 from app.core.middleware import (
@@ -24,6 +25,25 @@ from app.db.session import SessionLocal, engine
 from app.services.ingestion import IngestRunner
 
 logger = logging.getLogger(__name__)
+
+
+async def _warmup_ollama(settings: Settings) -> None:
+    if settings.model_provider == "ollama":
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                await client.post(
+                    f"{settings.ollama_base_url.rstrip('/')}/api/chat",
+                    json={
+                        "model": settings.ollama_model,
+                        "messages": [{"role": "user", "content": "ping"}],
+                        "keep_alive": "24h",
+                        "stream": False,
+                    },
+                )
+                logger.info("Ollama model pre-warmed and cached with keep_alive=24h", extra={"event": "ollama_warmup"})
+        except Exception as exc:
+            logger.info("Ollama warmup skipped: %s", exc)
 
 
 @asynccontextmanager
@@ -43,7 +63,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.ingest_on_startup:
         # Background task: the API answers /health immediately while ingestion runs.
         runner.start("startup")
+    warmup_task = asyncio.create_task(_warmup_ollama(settings))
     yield
+    warmup_task.cancel()
     await runner.shutdown()
     await engine.dispose()
 
