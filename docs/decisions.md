@@ -130,4 +130,34 @@ This document records architectural decisions, identified pitfalls, failed attem
 - **Failed Attempt (`nh3` `link_rel` Conflict)**: Sanitizer tests initially threw `ValueError: "rel" attribute is not allowed for tag "a" when link_rel is set; pass link_rel=None to manage the "rel" attribute directly`.
   - *Fix*: Removed `"rel"` from `ALLOWED_ATTRIBUTES["a"]` since `nh3` manages the `rel="noopener noreferrer"` attribute automatically when `link_rel` is passed.
 
+---
+
+## 4. Part 3: Comprehensive Test Coverage (2026-10-12)
+
+### 4.1 Router Intent Classification (`test_router.py`)
+- **Coverage**: 32 parametrized test cases verifying deterministic routing across:
+  - Standard Q&A inquiries (metrics, guests, frameworks, PLG).
+  - Essay requests (Ship 30, atomic essays, deep dive guides, newsletter editions).
+  - Artifact requests (HTML widgets, interactive calculators, UI components, CSS snippets).
+  - Edge cases (all-caps inputs, excess whitespace, leading/trailing punctuation).
+  - Explicit intent overrides (`explicit_intent="qa"`, `"essay"`, `"artifact"`) overriding text classification.
+
+### 4.2 Stream Chat Persistence (`test_chat_persistence.py`)
+- **Coverage**: Tested single-turn and multi-turn conversational streaming against the live HTTP endpoint:
+  - Verified that user message and assistant message are both committed to Postgres upon stream completion.
+  - Asserted monotonically increasing `seq` values across turns (`Message.seq`).
+  - Verified that `provider` and `model` columns are faithfully recorded on each assistant turn.
+
+### 4.3 Error Mapping & Leakage Prevention (`test_error_mapping.py`)
+- **Coverage**: Built deterministic `FailingLLMProvider` to test error boundaries:
+  - `ProviderTimeoutError` -> mapped to HTTP 504 with JSON error code `model_timeout`.
+  - `ProviderUnavailableError` -> mapped to HTTP 503 with JSON error code `model_unavailable`.
+  - Streaming SSE -> emitted `event: error` frame containing `code`, `message`, `request_id`, and boolean `retryable` flag.
+  - Verified that raw internal socket exceptions, localhost IP addresses, and Python tracebacks are never exposed to the client.
+
+### 4.4 Failed Attempts & Debugging
+- **Failed Attempt (Router Keyword Gap)**: Test case `"Draft a post on why Net Revenue Retention is the holy grail."` initially evaluated to `"qa"` because `_ESSAY_KEYWORDS` matched `write a post` but omitted the verb `draft`.
+  - *Fix*: Expanded the regex pattern to `(?:write|draft)\s+an?\s+(?:article|post|guide|essay)`, properly classifying drafting requests into the Ship 30 essay skill.
+
+
 
