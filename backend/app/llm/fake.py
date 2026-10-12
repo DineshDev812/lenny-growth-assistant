@@ -15,7 +15,7 @@ class FakeLLMProvider(BaseLLMProvider):
         model_name: str = "fake-model",
     ) -> None:
         self._canned_response = canned_response
-        self._tokens = tokens or ["This ", "is ", "a ", "fake ", "stream."]
+        self._tokens = tokens or ["This ", "is ", "a ", "fake ", "stream ", "grounded ", "in ", "[S1]."]
         self._health_status = health_status
         self._provider = provider_name
         self._model = model_name

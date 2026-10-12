@@ -49,3 +49,23 @@ class ProviderUnavailableError(AppError):
 class ProviderTimeoutError(AppError):
     def __init__(self, message: str = "LLM provider request timed out.") -> None:
         super().__init__(code="provider_timeout", message=message, status_code=504)
+
+
+class RateLimitedError(AppError):
+    def __init__(self, message: str = "Too many requests. Please wait before trying again.") -> None:
+        super().__init__(code="rate_limited", message=message, status_code=429)
+
+
+class MessageTooLongError(AppError):
+    def __init__(self, message: str = "Message exceeds maximum allowed length.") -> None:
+        super().__init__(code="message_too_long", message=message, status_code=400)
+
+
+class ModelUnavailableError(AppError):
+    def __init__(self, message: str = "Model provider is currently unavailable.") -> None:
+        super().__init__(code="model_unavailable", message=message, status_code=503)
+
+
+class ModelTimeoutError(AppError):
+    def __init__(self, message: str = "Model request timed out.") -> None:
+        super().__init__(code="model_timeout", message=message, status_code=504)

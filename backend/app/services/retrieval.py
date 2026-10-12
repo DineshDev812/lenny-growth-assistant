@@ -89,10 +89,15 @@ class RetrievalService:
 
     async def retrieve(self, query: str, k: int = 6) -> list[RetrievedChunk]:
         """Top-k chunks for a query. Empty/nonsense/weak queries return [], never an error."""
+        chunks, _ = await self.retrieve_with_meta(query, k=k)
+        return chunks
+
+    async def retrieve_with_meta(self, query: str, k: int = 6) -> tuple[list[RetrievedChunk], str]:
+        """Top-k chunks for a query with match mode ('strict' or 'or_fallback')."""
         cleaned = " ".join((query or "").split())[:MAX_QUERY_CHARS]
         terms = extract_terms(cleaned)
         if not terms or k < 1:
-            return []
+            return [], "strict"
         limit = min(k, MAX_K)
 
         rows = await self._repo.search_websearch(cleaned, min_score=self._min_score, limit=limit)
@@ -116,6 +121,6 @@ class RetrievalService:
                     rows = filtered_rows
         logger.info(
             "Retrieval %s returned %d chunks" % (mode, len(rows)),
-            extra={"event": "retrieval", "retrieval_hits": len(rows)},
+            extra={"event": "retrieval", "retrieval_hits": len(rows), "mode": mode},
         )
-        return [_to_chunk(row) for row in rows]
+        return [_to_chunk(row) for row in rows], mode

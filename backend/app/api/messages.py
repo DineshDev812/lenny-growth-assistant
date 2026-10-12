@@ -5,10 +5,11 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, Request, status
 from fastapi.responses import Response, StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_client_id
-from app.db.session import get_db
+from app.core.config import get_settings
+from app.core.exceptions import MessageTooLongError
+from app.db.session import SessionLocal
 from app.schemas.messages import MessageCreate, SendMessageResponse
 from app.services.chat import ChatService
 
@@ -29,13 +30,19 @@ async def create_message(
     session_id: UUID,
     payload: MessageCreate,
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
     client_id: Annotated[UUID, Depends(get_client_id)],
     accept: Annotated[str | None, Header()] = None,
     x_request_id: Annotated[str | None, Header()] = None,
 ) -> Response:
     req_id = _extract_request_id(request, x_request_id)
-    chat_service = ChatService(db)
+    settings = get_settings()
+
+    if len(payload.content) > settings.max_message_chars:
+        raise MessageTooLongError(
+            f"Message exceeds maximum allowed length of {settings.max_message_chars} characters."
+        )
+
+    chat_service = ChatService(session_factory=SessionLocal)
 
     is_sse = accept and "text/event-stream" in accept
 

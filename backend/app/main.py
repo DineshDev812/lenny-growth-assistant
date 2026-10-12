@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+import logging
+
 from app.api.artifacts import router as artifacts_router
 from app.api.health import router as health_router
 from app.api.ingest import router as ingest_router
@@ -13,15 +15,29 @@ from app.api.sessions import router as sessions_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import setup_logging
-from app.core.middleware import ClientIdMiddleware, RequestContextMiddleware
+from app.core.middleware import (
+    ClientIdMiddleware,
+    RateLimitMiddleware,
+    RequestContextMiddleware,
+)
 from app.db.session import SessionLocal, engine
 from app.services.ingestion import IngestRunner
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     setup_logging(settings.log_level)
+    if (
+        settings.secret_key == "change-me-in-local-dev-not-for-production"
+        and not settings.cookie_secure
+    ):
+        logger.warning(
+            "SECURITY WARNING: Default SECRET_KEY in use with COOKIE_SECURE=false. "
+            "Set a strong secret and enable secure cookies for production."
+        )
     runner = IngestRunner(SessionLocal, settings)
     app.state.ingest_runner = runner
     if settings.ingest_on_startup:
@@ -37,6 +53,7 @@ def create_app() -> FastAPI:
     setup_logging(settings.log_level)
     application = FastAPI(title=settings.app_name, lifespan=lifespan)
     application.add_middleware(RequestContextMiddleware)
+    application.add_middleware(RateLimitMiddleware)
     application.add_middleware(ClientIdMiddleware)
     application.add_middleware(
         CORSMiddleware,

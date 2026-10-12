@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_client_id
@@ -60,3 +60,13 @@ async def rename_session(
         title=payload.title,
     )
     return SessionRead.model_validate(session)
+
+
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_session(
+    session_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    client_id: Annotated[UUID, Depends(get_client_id)],
+) -> Response:
+    await SessionService(db).delete(session_id=session_id, client_id=client_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
