@@ -59,6 +59,8 @@ export interface MetaResponse {
   model: string;
   fallback_provider: string | null;
   provider_status: 'ok' | 'unconfigured' | 'unavailable' | 'unknown';
+  episodes_loaded?: number;
+  chunks_loaded?: number;
 }
 
 export interface HealthResponse {

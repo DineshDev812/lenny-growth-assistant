@@ -1,12 +1,13 @@
 services:
   postgres:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-lenny}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lenny}
       POSTGRES_DB: ${POSTGRES_DB:-lenny}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -20,6 +21,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    restart: unless-stopped
     env_file:
       - path: .env
         required: false
@@ -29,7 +31,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-lenny}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lenny}
       POSTGRES_DB: ${POSTGRES_DB:-lenny}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://lenny:lenny@postgres:5432/lenny}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-lenny}:${POSTGRES_PASSWORD:-lenny}@postgres:5432/${POSTGRES_DB:-lenny}}
       SECRET_KEY: ${SECRET_KEY:-change-me-in-local-dev-not-for-production}
       COOKIE_NAME: ${COOKIE_NAME:-client_id}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
@@ -58,13 +60,17 @@ services:
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-20}
       MAX_MESSAGE_CHARS: ${MAX_MESSAGE_CHARS:-4000}
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./data/transcripts:/data/transcripts:ro
-      - ./backend/app:/app/app
-      - ./backend/tests:/app/tests
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,10 +79,12 @@ services:
     build:
       context: ./web
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   pgdata:

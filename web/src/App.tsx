@@ -394,6 +394,13 @@ export const App: React.FC = () => {
           onNewChat={handleNewSession}
         />
 
+        {meta && meta.episodes_loaded === 0 && (
+          <div className="bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 px-4 py-2 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
+            <span>No transcripts loaded yet. See README: Get the transcripts.</span>
+            <span className="text-[11px] opacity-75">Corpus: 0 episodes</span>
+          </div>
+        )}
+
         {/* Content Area (Split Pane when Artifact is Open) */}
         <div className="flex-1 flex min-h-0 overflow-hidden relative">
           {/* Messages Pane */}

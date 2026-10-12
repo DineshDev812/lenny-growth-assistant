@@ -100,7 +100,14 @@ A full-stack, production-grade AI assistant grounded exclusively in 300+ episode
    cd lenny-growth-assistant
    ```
 
-2. **Configure environment**:
+2. **Get the transcripts**:
+   The podcast transcripts dataset is supplied by the take-home organizers. Place the dataset files into:
+   ```
+   data/transcripts/episodes/{slug}/transcript.md
+   ```
+   (e.g., `data/transcripts/episodes/brian-chesky/transcript.md`). If started without transcripts, the assistant logs a startup warning and displays a calm banner in the UI while continuing to answer smalltalk and general questions without crashing.
+
+3. **Configure environment**:
    ```bash
    cp .env.example .env
    ```

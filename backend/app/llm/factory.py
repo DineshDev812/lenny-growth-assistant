@@ -27,11 +27,11 @@ def get_llm_provider(settings: Settings | None = None) -> BaseLLMProvider:
         return AnthropicProvider(
             api_key=cfg.anthropic_api_key,
             model=cfg.anthropic_model,
-            timeout=cfg.llm_timeout,
+            timeout=cfg.llm_timeout_seconds,
         )
 
     return OllamaProvider(
         base_url=cfg.ollama_base_url,
         model=cfg.ollama_model,
-        timeout=cfg.llm_timeout,
+        timeout=cfg.llm_timeout_seconds,
     )

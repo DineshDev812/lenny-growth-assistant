@@ -46,7 +46,6 @@ class Settings(BaseSettings):
     chat_history_messages: int = Field(default=6, ge=0)
     llm_first_token_timeout_seconds: float = Field(default=120.0, ge=5.0)
     llm_timeout_seconds: float = Field(default=240.0, ge=10.0)
-    llm_timeout: float = Field(default=240.0, ge=10.0)
     model_fallback: Literal["none", "ollama", "anthropic"] = Field(default="none")
     rate_limit_per_minute: int = Field(default=20, ge=1)
     max_message_chars: int = Field(default=4000, ge=100)

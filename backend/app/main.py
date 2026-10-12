@@ -58,6 +58,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "SECURITY WARNING: Default SECRET_KEY in use with COOKIE_SECURE=false. "
             "Set a strong secret and enable secure cookies for production."
         )
+    import os
+    transcripts_empty = True
+    if os.path.exists(settings.transcripts_dir):
+        try:
+            transcripts_empty = len(os.listdir(settings.transcripts_dir)) == 0
+        except OSError:
+            transcripts_empty = True
+    if transcripts_empty:
+        logger.warning(
+            "WARNING: No transcripts found in %s. See README: Get the transcripts.",
+            settings.transcripts_dir,
+        )
     runner = IngestRunner(SessionLocal, settings)
     app.state.ingest_runner = runner
     if settings.ingest_on_startup:

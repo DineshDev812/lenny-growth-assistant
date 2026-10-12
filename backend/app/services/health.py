@@ -72,6 +72,27 @@ class HealthService:
         settings = get_settings()
         provider_status, llm_status = await probe_llm_health()
 
+        episodes_count = 0
+        chunks_count = 0
+        try:
+            from sqlalchemy import func, select
+            from app.db.models import Chunk, Episode
+            from app.db.session import SessionLocal
+
+            if self._db is not None:
+                ep_res = await self._db.scalar(select(func.count(Episode.id)))
+                ch_res = await self._db.scalar(select(func.count(Chunk.id)))
+                episodes_count = int(ep_res or 0)
+                chunks_count = int(ch_res or 0)
+            else:
+                async with SessionLocal() as db:
+                    ep_res = await db.scalar(select(func.count(Episode.id)))
+                    ch_res = await db.scalar(select(func.count(Chunk.id)))
+                    episodes_count = int(ep_res or 0)
+                    chunks_count = int(ch_res or 0)
+        except Exception:
+            pass
+
         return MetaResponse(
             app_name=settings.app_name,
             version="1.0.0",
@@ -83,4 +104,6 @@ class HealthService:
             provider=settings.model_provider,
             model=settings.active_model,
             provider_status=provider_status,
+            episodes_loaded=episodes_count,
+            chunks_loaded=chunks_count,
         )

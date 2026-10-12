@@ -25,3 +25,5 @@ class MetaResponse(BaseModel):
     provider: str
     model: str
     provider_status: str = "ok"
+    episodes_loaded: int = 0
+    chunks_loaded: int = 0

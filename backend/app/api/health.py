@@ -16,5 +16,5 @@ async def get_health(db: Annotated[AsyncSession, Depends(get_db)]) -> HealthResp
 
 
 @router.get("/api/meta", response_model=MetaResponse)
-async def get_meta() -> MetaResponse:
-    return await HealthService().get_meta()
+async def get_meta(db: Annotated[AsyncSession, Depends(get_db)]) -> MetaResponse:
+    return await HealthService(db).get_meta()

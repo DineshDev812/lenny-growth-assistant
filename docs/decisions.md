@@ -254,3 +254,35 @@ Executed against local Ollama running `qwen2.5:3b` on AMD CPU:
   3. **React ErrorBoundary**: Created `web/src/components/ErrorBoundary.tsx` wrapping the application root in `main.tsx` to prevent any unhandled render exception from wiping the screen.
   4. **Safe Component Rendering**: Defensively guarded `ChatMessage.tsx` against undefined/null strings and malformed source arrays.
 
+---
+
+## 9. Part 1: Fresh-Clone Blockers & Production Compose Hardening (2026-10-12)
+
+### 9.1 Multi-Stage Web Dockerfile
+- **Problem**: `web/Dockerfile` previously executed `COPY dist ...`. Since `dist` is gitignored, `docker compose up --build` failed on any fresh clone without prior manual `npm run build`.
+- **Fix**: Converted `web/Dockerfile` into a two-stage build:
+  - Stage 1 (`node:20-alpine`): sets `WORKDIR /app`, copies `package*.json`, runs `npm ci`, copies source files, and runs `npm run build`.
+  - Stage 2 (`nginx:alpine`): copies built static assets from `builder:/app/dist` to `/usr/share/nginx/html` and installs `nginx.conf`.
+  - Updated `web/.dockerignore` to explicitly exclude `node_modules`, `dist`, `.git`, `.DS_Store`.
+
+### 9.2 Docker Compose Hardening & Environment Cleanliness
+- **Interpolated DATABASE_URL**: Built `DATABASE_URL` dynamically from `${POSTGRES_USER}`, `${POSTGRES_PASSWORD}`, and `${POSTGRES_DB}` so modifying credentials in `.env` cannot desynchronize the backend connection string.
+- **Port Binding**: Explicitly bound all published host ports to `127.0.0.1` (`127.0.0.1:5432:5432`, `127.0.0.1:8000:8000`, `127.0.0.1:5173:80`).
+- **Healthchecks & Dependencies**: Added Python standard library healthcheck (`urllib.request.urlopen`) on backend; configured `web` container to depend on backend with `condition: service_healthy`; added `restart: unless-stopped` to all services.
+- **Dev Bind Mounts Isolated**: Moved hot-reload dev bind mounts (`./backend/app:/app/app`, `./backend/tests:/app/tests`) into `docker-compose.override.yml`. Production compose runs purely with baked image code.
+- **Timeout Variable Deduplication**: Replaced redundant `llm_timeout` in `config.py` and `factory.py` with the canonical `llm_timeout_seconds` and `llm_first_token_timeout_seconds`. Removed stale Phase 2 comments in `.env.example`.
+
+### 9.3 Nginx Gateway & Security
+- Updated `web/nginx.conf`:
+  - Set `proxy_set_header Connection ""` and `proxy_http_version 1.1` on `/api` (removing forced `Connection 'upgrade'`).
+  - Added `proxy_set_header X-Forwarded-Proto $scheme`.
+  - Added security headers: `X-Content-Type-Options nosniff always;` and `Referrer-Policy no-referrer always;`.
+  - Added 1-year immutable cache header for `/assets/` static chunks.
+
+### 9.4 Empty Corpus Resilience & Metadata Tracking
+- Updated `GET /api/meta` to dynamically query and return `episodes_loaded` and `chunks_loaded`.
+- Added startup warning in `app/main.py` if `transcripts_dir` is missing or empty.
+- Documented "Get the transcripts" step in `README.md` with exact path `data/transcripts/episodes/{slug}/transcript.md`.
+- Added calm banner in `App.tsx` when `episodes_loaded === 0`.
+
+
