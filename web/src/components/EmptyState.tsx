@@ -47,14 +47,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onSelectPrompt }) => {
 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center max-w-2xl mx-auto">
-      <div className="w-14 h-14 rounded-2xl bg-lenny-600 text-white flex items-center justify-center shadow-md mb-4 animate-in zoom-in-95 duration-200">
+      <div className="w-14 h-14 rounded-2xl bg-lenny-600 dark:bg-lenny-700 text-white flex items-center justify-center shadow-md mb-4 animate-in zoom-in-95 duration-200">
         <Mic className="w-7 h-7" />
       </div>
 
-      <h1 className="text-xl md:text-2xl font-bold text-stone-900 tracking-tight mb-2">
+      <h1 className="text-xl md:text-2xl font-bold text-stone-900 dark:text-stone-100 tracking-tight mb-2">
         The Lenny Growth Assistant
       </h1>
-      <p className="text-xs md:text-sm text-stone-600 max-w-md mb-8 leading-relaxed">
+      <p className="text-xs md:text-sm text-stone-600 dark:text-stone-400 max-w-md mb-8 leading-relaxed">
         Grounded directly in 300+ episodes of Lenny's Podcast. Ask questions, generate Ship 30 essays, or build interactive artifacts with verified citations.
       </p>
 
@@ -65,23 +65,23 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ onSelectPrompt }) => {
             <button
               key={idx}
               onClick={() => onSelectPrompt(item.prompt, item.intent, item.format)}
-              className="p-3.5 bg-white hover:bg-stone-50 border border-stone-200/90 hover:border-lenny-300 rounded-xl transition-all shadow-2xs hover:shadow-xs group flex flex-col justify-between"
+              className="p-3.5 bg-white dark:bg-stone-900 hover:bg-stone-50 dark:hover:bg-stone-850 border border-stone-200/90 dark:border-stone-800 hover:border-lenny-300 dark:hover:border-lenny-700 rounded-xl transition-all shadow-2xs hover:shadow-xs group flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-lenny-700 bg-lenny-50 px-2 py-0.5 rounded border border-lenny-200">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-lenny-700 dark:text-lenny-400 bg-lenny-50 dark:bg-lenny-950/70 px-2 py-0.5 rounded border border-lenny-200 dark:border-lenny-800/80">
                     {item.tag}
                   </span>
-                  <Icon className="w-4 h-4 text-stone-400 group-hover:text-lenny-600 transition-colors" />
+                  <Icon className="w-4 h-4 text-stone-400 dark:text-stone-500 group-hover:text-lenny-600 dark:group-hover:text-lenny-400 transition-colors" />
                 </div>
-                <div className="font-semibold text-xs text-stone-900 mb-1">
+                <div className="font-semibold text-xs text-stone-900 dark:text-stone-100 mb-1">
                   {item.title}
                 </div>
-                <div className="text-[11px] text-stone-500 line-clamp-2 leading-relaxed">
+                <div className="text-[11px] text-stone-500 dark:text-stone-400 line-clamp-2 leading-relaxed">
                   "{item.prompt}"
                 </div>
               </div>
-              <div className="text-[11px] text-lenny-600 font-medium mt-3 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+              <div className="text-[11px] text-lenny-600 dark:text-lenny-400 font-medium mt-3 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
                 <span>Ask this</span>
                 <span>→</span>
               </div>

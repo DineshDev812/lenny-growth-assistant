@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ArrowDown } from 'lucide-react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { ChatMessage } from './components/ChatMessage';
@@ -17,6 +18,16 @@ export const App: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Dark mode
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('lenny_dark_mode');
+      if (stored !== null) return stored === 'true';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
   // Artifact Viewer state
   const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null);
   const [artifactViewerOpen, setArtifactViewerOpen] = useState(false);
@@ -26,8 +37,26 @@ export const App: React.FC = () => {
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
 
+  // Scroll state
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sync dark mode class with HTML element
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('lenny_dark_mode', String(darkMode));
+  }, [darkMode]);
+
+  const handleToggleDarkMode = () => {
+    setDarkMode((prev) => !prev);
+  };
 
   // Auto-scroll to bottom
   const scrollToBottom = (smooth = true) => {
@@ -35,8 +64,35 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
-    scrollToBottom(false);
-  }, [messages]);
+    if (!showScrollBottom) {
+      scrollToBottom(false);
+    }
+  }, [messages, showScrollBottom]);
+
+  // Monitor scroll position to show floating scroll button
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    setShowScrollBottom(distanceFromBottom > 160);
+  };
+
+  // Global Keyboard Shortcuts (Cmd+K / Ctrl+K and Esc)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        handleNewSession();
+      } else if (e.key === 'Escape') {
+        if (artifactViewerOpen) setArtifactViewerOpen(false);
+        if (sourcesDrawerOpen) setSourcesDrawerOpen(false);
+        if (sidebarOpen) setSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [artifactViewerOpen, sourcesDrawerOpen, sidebarOpen, isStreaming]);
 
   // Initial load: Meta and Sessions
   useEffect(() => {
@@ -108,6 +164,27 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDeleteSession = async (id: string) => {
+    try {
+      await api.deleteSession(id);
+      const updated = sessions.filter((s) => s.id !== id);
+      setSessions(updated);
+
+      if (activeSessionId === id) {
+        if (updated.length > 0) {
+          loadSession(updated[0].id);
+        } else {
+          const fresh = await api.createSession();
+          setSessions([fresh]);
+          setActiveSessionId(fresh.id);
+          setMessages([]);
+        }
+      }
+    } catch (err) {
+      console.error(`Failed to delete session ${id}:`, err);
+    }
+  };
+
   const handleOpenArtifact = async (summary: ArtifactSummary) => {
     try {
       const fullArt = await api.getArtifact(summary.id);
@@ -119,7 +196,6 @@ export const App: React.FC = () => {
   };
 
   const handleOpenSource = (sourceId: string) => {
-    // Find all sources from current messages
     const allSources = messages.flatMap((m) => m.sources || []);
     const unique = Array.from(new Map(allSources.map((s) => [s.id, s])).values());
     setActiveSources(unique);
@@ -245,7 +321,6 @@ export const App: React.FC = () => {
               setActiveArtifact(doneData.artifact);
               setArtifactViewerOpen(true);
             }
-            // Refresh session list to reflect title updates
             api.listSessions().then(setSessions).catch(console.error);
           },
         },
@@ -275,7 +350,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#FBF9F5] text-stone-900">
+    <div className="flex h-screen w-screen overflow-hidden bg-[#FBF9F5] dark:bg-stone-950 text-stone-900 dark:text-stone-100 transition-colors">
       {/* Sidebar */}
       <Sidebar
         sessions={sessions}
@@ -283,6 +358,7 @@ export const App: React.FC = () => {
         onSelectSession={loadSession}
         onNewSession={handleNewSession}
         onRenameSession={handleRenameSession}
+        onDeleteSession={handleDeleteSession}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -293,28 +369,39 @@ export const App: React.FC = () => {
           meta={meta}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          darkMode={darkMode}
+          onToggleDarkMode={handleToggleDarkMode}
+          onNewChat={handleNewSession}
         />
 
         {/* Content Area (Split Pane when Artifact is Open) */}
         <div className="flex-1 flex min-h-0 overflow-hidden relative">
           {/* Messages Pane */}
-          <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
+          <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
+            <div
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"
+            >
               {messages.length === 0 ? (
                 <EmptyState onSelectPrompt={handleSendMessage} />
               ) : (
                 <div className="max-w-4xl mx-auto w-full">
-                  {messages.map((message) => (
-                    <ChatMessage
-                      key={message.id}
-                      message={message}
-                      onOpenSource={handleOpenSource}
-                      onOpenArtifact={handleOpenArtifact}
-                    />
-                  ))}
+                  {messages.map((message, idx) => {
+                    const isLastMessage = idx === messages.length - 1;
+                    return (
+                      <ChatMessage
+                        key={message.id}
+                        message={message}
+                        isStreaming={isStreaming && isLastMessage && message.role === 'assistant'}
+                        onOpenSource={handleOpenSource}
+                        onOpenArtifact={handleOpenArtifact}
+                      />
+                    );
+                  })}
                   {isStreaming && (
-                    <div className="flex items-center gap-2 text-xs text-stone-400 py-2">
-                      <span className="w-2 h-2 rounded-full bg-lenny-600 animate-ping" />
+                    <div className="flex items-center gap-2 text-xs text-stone-400 dark:text-stone-500 py-2">
+                      <span className="w-2 h-2 rounded-full bg-lenny-600 dark:bg-lenny-400 animate-ping" />
                       <span>Grounded reasoning in progress...</span>
                     </div>
                   )}
@@ -322,6 +409,17 @@ export const App: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Floating Scroll to Bottom Button */}
+            {showScrollBottom && (
+              <button
+                onClick={() => scrollToBottom(true)}
+                className="absolute bottom-24 right-6 z-20 p-2.5 rounded-full bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900 shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center justify-center opacity-90 hover:opacity-100"
+                title="Scroll to latest message"
+              >
+                <ArrowDown className="w-4 h-4" />
+              </button>
+            )}
 
             {/* Input Bar */}
             <ChatInput

@@ -72,6 +72,16 @@ export const api = {
     });
   },
 
+  async deleteSession(id: string): Promise<void> {
+    const res = await fetch(`/api/sessions/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      throw new ApiError(`Failed to delete session (status ${res.status})`, 'delete_failed');
+    }
+  },
+
   async getArtifact(id: string): Promise<Artifact> {
     return request<Artifact>(`/api/artifacts/${id}`);
   },

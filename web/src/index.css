@@ -4,7 +4,10 @@
 
 @layer base {
   body {
-    @apply font-sans bg-[#FBF9F5] text-stone-900 selection:bg-lenny-200 selection:text-lenny-900;
+    @apply font-sans bg-[#FBF9F5] text-stone-900 selection:bg-lenny-200 selection:text-lenny-900 transition-colors duration-150;
+  }
+  .dark body {
+    @apply bg-stone-950 text-stone-100 selection:bg-lenny-800 selection:text-lenny-100;
   }
 }
 
@@ -22,6 +25,25 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(160, 150, 140, 0.5);
+}
+
+/* Streaming blinking cursor */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.streaming-caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  background-color: #b16b37;
+  margin-left: 3px;
+  vertical-align: middle;
+  border-radius: 1px;
+  animation: blink 0.8s infinite;
+}
+.dark .streaming-caret {
+  background-color: #e3c196;
 }
 
 /* Prose styles for rendered Markdown */
@@ -92,4 +114,22 @@
   background: transparent;
   color: inherit;
   padding: 0;
+}
+
+/* Dark mode prose overrides */
+.dark .prose-lenny {
+  color: #e7e5e4;
+}
+.dark .prose-lenny h1,
+.dark .prose-lenny h2,
+.dark .prose-lenny h3 {
+  color: #fafaf9;
+}
+.dark .prose-lenny blockquote {
+  border-left-color: #d5a168;
+  color: #a8a29e;
+}
+.dark .prose-lenny code {
+  background: #292524;
+  color: #f5d0a9;
 }

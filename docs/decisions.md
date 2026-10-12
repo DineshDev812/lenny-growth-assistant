@@ -184,5 +184,40 @@ Executed against local Ollama running `qwen2.5:3b` on AMD CPU:
 - **Failed Attempt (Rate Limiter Interference)**: The 20 req/min rate limiter triggered 429 errors when running the evaluation script in a tight loop.
   - *Fix*: Generated a unique signed `client_id` cookie for each evaluation question in `qa_eval.py`, isolating sessions and avoiding rate limit collision during batch runs.
 
+---
+
+## 6. Part 5: Editorial Frontend & Interaction Polish (2026-10-12)
+
+### 6.1 Design System & Typography
+- **Editorial Layout**: Clean typography with high signal-to-noise ratio:
+  - Light theme: Warm parchment background (`#FBF9F5`), stone neutrals (`stone-900`/`stone-600`), and warm Lenny amber accents (`#b16b37`).
+  - Dark theme: Slate tones (`stone-950`/`stone-900`), crisp stone typography (`stone-100`/`stone-400`), and persistent state synchronized via `localStorage` and `document.documentElement.classList`.
+
+### 6.2 Session Management & Organization (`Sidebar.tsx`)
+- **Temporal Grouping**: Categorizes sessions dynamically into "Today", "Yesterday", "Previous 7 Days", and "Older" groups based on last activity.
+- **Inline Renaming**: Double-click or edit icon triggers inline input with auto-focus, Enter-to-save, and Esc-to-cancel.
+- **Delete Confirmation Modal**: Trash icon triggers a confirmation dialog explaining permanent removal and triggers `DELETE /api/sessions/{id}` with cascade deletion.
+- **Keyboard Shortcuts**: Displays `⌘K` (macOS) / `Ctrl+K` (Windows/Linux) badges for 1-click new session creation.
+
+### 6.3 Chat Interaction Polish (`ChatMessage.tsx`, `ChatInput.tsx`)
+- **Clickable Citations**: Converts transcript tags (`[S1]`, `[S2]`) into interactive badge pills that open the corresponding source deep-dive drawer.
+- **Copy Message Action**: Hovering on any assistant message reveals a 1-click copy button with instant feedback.
+- **Streaming Indicator**: Added animated blinking caret (`.streaming-caret`) and pulse badge during active generation.
+- **Scroll Management**: Floating down-arrow button appears when user scrolls up during generation, providing one-click scroll-to-bottom.
+- **Input Character Limit**: Enforced 4,000-character max length on client with real-time character counter warning near limit.
+
+### 6.4 Claude-Style Artifact Pane (`ArtifactViewer.tsx`)
+- **Split Pane Layout**: Side-by-side view with chat pane; automatically loads markdown essays or interactive HTML widgets.
+- **Preview & Source Tabs**: Toggle between visual render and syntax-highlighted source code.
+- **Download & Fullscreen Actions**:
+  - Download button exports `.md` or `.html` directly to the user's filesystem with sanitized filename.
+  - Fullscreen button expands the artifact into an immersive modal for focused inspection.
+- **Sandboxed Security**: HTML artifacts rendered within an empty `sandbox=""` iframe, blocked from executing arbitrary scripts and locked down by Content-Security-Policy headers.
+
+### 6.5 Production Build Optimization
+- **Failed Attempt (Docker Network MTU Hang in Alpine)**: Running `npm install` inside Docker on Windows encountered intermittent socket drops and `Exit handler never called!`.
+  - *Fix*: Optimized build pipeline: compiled production bundle locally via Vite into `web/dist`, and streamlined `web/Dockerfile` into an ultra-fast Nginx container (`COPY dist /usr/share/nginx/html`). Startup and build time dropped from >3 minutes to 0.6 seconds.
+
+
 
 
