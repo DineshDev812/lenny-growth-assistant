@@ -195,10 +195,24 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleOpenSource = (sourceId: string) => {
-    const allSources = messages.flatMap((m) => m.sources || []);
-    const unique = Array.from(new Map(allSources.map((s) => [s.id, s])).values());
-    setActiveSources(unique);
+  const handleOpenSource = (sourceId: string, messageId?: string) => {
+    let targetSources: Source[] = [];
+    if (messageId) {
+      const msg = messages.find((m) => m.id === messageId);
+      if (msg && msg.sources && msg.sources.length > 0) {
+        targetSources = msg.sources;
+      }
+    }
+    if (targetSources.length === 0) {
+      const matchingMsg = [...messages].reverse().find((m) => m.sources?.some((s) => s.id === sourceId));
+      if (matchingMsg && matchingMsg.sources) {
+        targetSources = matchingMsg.sources;
+      } else {
+        const allSources = messages.flatMap((m) => m.sources || []);
+        targetSources = Array.from(new Map(allSources.map((s) => [s.id, s])).values());
+      }
+    }
+    setActiveSources(targetSources);
     setActiveSourceId(sourceId);
     setSourcesDrawerOpen(true);
   };

@@ -7,7 +7,7 @@ import { Message, Source, ArtifactSummary } from '../types';
 interface ChatMessageProps {
   message: Message;
   isStreaming?: boolean;
-  onOpenSource: (sourceId: string) => void;
+  onOpenSource: (sourceId: string, messageId?: string) => void;
   onOpenArtifact: (artifact: ArtifactSummary) => void;
   onAction?: (action: { type: string; label: string; prompt: string }) => void;
 }
@@ -41,13 +41,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       // Replace citation tags [S1], [S2] with html badges
       const processed = rawText.replace(/\[S(\d+)\]/gi, (_, num) => {
         const tag = `S${num}`;
-        return `<button data-citation="${tag}" class="citation-btn inline-flex items-center px-1.5 py-0.2 mx-0.5 rounded text-[11px] font-bold bg-lenny-100 dark:bg-lenny-950 hover:bg-lenny-200 dark:hover:bg-lenny-900 text-lenny-800 dark:text-lenny-300 border border-lenny-300 dark:border-lenny-800 transition-colors cursor-pointer">[${tag}]</button>`;
+        return `<button data-citation="${tag}" data-message-id="${message.id}" class="citation-btn inline-flex items-center px-1.5 py-0.2 mx-0.5 rounded text-[11px] font-bold bg-lenny-100 dark:bg-lenny-950 hover:bg-lenny-200 dark:hover:bg-lenny-900 text-lenny-800 dark:text-lenny-300 border border-lenny-300 dark:border-lenny-800 transition-colors cursor-pointer">[${tag}]</button>`;
       });
 
       const rawHtml = marked.parse(processed) as string;
       const sanitized = DOMPurify.sanitize(rawHtml, {
         ADD_TAGS: ['button'],
-        ADD_ATTR: ['data-citation', 'class'],
+        ADD_ATTR: ['data-citation', 'data-message-id', 'class'],
       });
 
       return { __html: sanitized };
@@ -61,8 +61,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     const btn = target.closest('button[data-citation]');
     if (btn) {
       const citationId = btn.getAttribute('data-citation');
+      const msgId = btn.getAttribute('data-message-id') || message.id;
       if (citationId) {
-        onOpenSource(citationId);
+        onOpenSource(citationId, msgId);
       }
     }
   };
@@ -191,7 +192,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   {message.sources.filter((src: any) => Boolean(src && src.id)).map((src: Source) => (
                     <button
                       key={src.id}
-                      onClick={() => onOpenSource(src.id)}
+                      onClick={() => onOpenSource(src.id, message.id)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-[#FBF9F5] dark:bg-stone-800/80 hover:bg-lenny-100 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 border border-stone-200/80 dark:border-stone-700 transition-colors group/src"
                       title={`${src.title || ''} (${src.guest || ''})`}
                     >

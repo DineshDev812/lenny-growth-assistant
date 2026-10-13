@@ -59,11 +59,11 @@ export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({
 
         {/* Source Selector Tabs */}
         <div className="flex items-center gap-1.5 px-4 py-2 border-b border-stone-100 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/60 overflow-x-auto">
-          {sources.map((s) => {
+          {sources.map((s, idx) => {
             const isSelected = s.id === (currentSource?.id);
             return (
               <button
-                key={s.id}
+                key={`${s.chunk_id || s.id}_${s.id}_${idx}`}
                 onClick={() => onSelectSource(s.id)}
                 className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                   isSelected
