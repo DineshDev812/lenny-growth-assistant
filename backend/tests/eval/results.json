@@ -1,15 +1,19 @@
 {
   "total_questions": 20,
   "answerable_count": 16,
-  "answered_count": 8,
-  "answer_rate_pct": 50.0,
+  "answered_count": 9,
+  "answer_rate_pct": 56.2,
   "unanswerable_count": 4,
   "abstained_count": 4,
+  "grounded_abstain_count": 0,
+  "general_fallback_count": 4,
   "abstain_precision_pct": 100.0,
+  "answer_kind_total": 9,
+  "valid_citation_answers": 9,
   "citation_validity_pct": 100.0,
-  "avg_source_coverage": 1.38,
-  "latency_p50_ms": 61421.77,
-  "latency_p90_ms": 102478.72,
+  "avg_source_coverage": 1.22,
+  "latency_p50_ms": 17528.39,
+  "latency_p90_ms": 26394.48,
   "details": [
     {
       "id": 1,
@@ -18,11 +22,12 @@
       "question": "How do you measure product-market fit according to Lenny's guests?",
       "context_question": null,
       "expected_abstain": false,
+      "kind": "abstain",
       "is_abstain": true,
       "citations_count": 0,
       "citations_valid": true,
       "distinct_episodes": 0,
-      "latency_ms": 91904.24,
+      "latency_ms": 34903.45,
       "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
     },
     {
@@ -32,12 +37,13 @@
       "question": "What is a good activation rate and how do you improve user onboarding?",
       "context_question": null,
       "expected_abstain": false,
+      "kind": "answer",
       "is_abstain": false,
       "citations_count": 1,
       "citations_valid": true,
       "distinct_episodes": 1,
-      "latency_ms": 47313.59,
-      "response_snippet": "A good activation rate can vary significantly depending on the product and industry, but generally, a high activation rate indicates that users are successfully engaging with the product and are likel"
+      "latency_ms": 15402.62,
+      "response_snippet": "A good activation rate varies by industry, but typically it's around 20-30% [S1]. To improve user onboarding, focus onboarding on completing one key action rather than exploring multiple features [S1]"
     },
     {
       "id": 3,
@@ -46,12 +52,13 @@
       "question": "How should early-stage startups think about pricing and packaging?",
       "context_question": null,
       "expected_abstain": false,
+      "kind": "answer",
       "is_abstain": false,
-      "citations_count": 4,
+      "citations_count": 2,
       "citations_valid": true,
       "distinct_episodes": 2,
-      "latency_ms": 102478.72,
-      "response_snippet": "Early-stage startups should think about pricing and packaging by focusing on thoughtful consideration of Proof of Concepts (POCs), choosing the right pricing archetype or pricing models, and consideri"
+      "latency_ms": 20700.35,
+      "response_snippet": "Early-stage startups should consider a modular pricing strategy where they offer multiple products or features at different price points [S1]. They should also develop a comprehensive packaging strate"
     },
     {
       "id": 4,
@@ -60,12 +67,13 @@
       "question": "What frameworks exist for improving user retention in SaaS?",
       "context_question": null,
       "expected_abstain": false,
+      "kind": "answer",
       "is_abstain": false,
-      "citations_count": 3,
+      "citations_count": 1,
       "citations_valid": true,
-      "distinct_episodes": 2,
-      "latency_ms": 85211.28,
-      "response_snippet": "There are several frameworks and strategies that can be used to improve user retention in SaaS products. Based on the provided sources, here are some key points:\n\n1. **Net Dollar Retention (NDR)**: Th"
+      "distinct_episodes": 1,
+      "latency_ms": 13002.48,
+      "response_snippet": "- Focus onboarding on completing one key action rather than exploring multiple features [S1].\n- Set up triggered check-ins when new users stall before reaching their activation milestone [S1]."
     },
     {
       "id": 5,
@@ -74,12 +82,13 @@
       "question": "How do you hire and evaluate your first product manager?",
       "context_question": null,
       "expected_abstain": false,
+      "kind": "answer",
       "is_abstain": true,
-      "citations_count": 0,
+      "citations_count": 1,
       "citations_valid": true,
-      "distinct_episodes": 0,
-      "latency_ms": 82511.56,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "distinct_episodes": 1,
+      "latency_ms": 7062.73,
+      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast. [S1]"
     },
     {
       "id": 6,
@@ -88,12 +97,13 @@
       "question": "How do two-sided marketplaces solve the cold start problem and build liquidity?",
       "context_question": null,
       "expected_abstain": false,
-      "is_abstain": true,
-      "citations_count": 0,
+      "kind": "answer",
+      "is_abstain": false,
+      "citations_count": 1,
       "citations_valid": true,
-      "distinct_episodes": 0,
-      "latency_ms": 47369.31,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "distinct_episodes": 1,
+      "latency_ms": 19810.74,
+      "response_snippet": "Two-sided marketplaces address the cold start problem by focusing on core value delivery within the first user interaction [S2]. They build liquidity through strategic partnerships and incentives for "
     },
     {
       "id": 7,
@@ -102,12 +112,13 @@
       "question": "What is the difference between product-led growth and sales-led growth?",
       "context_question": null,
       "expected_abstain": false,
-      "is_abstain": true,
-      "citations_count": 0,
+      "kind": "answer",
+      "is_abstain": false,
+      "citations_count": 1,
       "citations_valid": true,
-      "distinct_episodes": 0,
-      "latency_ms": 117934.55,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "distinct_episodes": 1,
+      "latency_ms": 20252.8,
+      "response_snippet": "Product-led growth focuses on users discovering and using the core value of your product on their own, while sales-led growth relies on sales teams to drive adoption and revenue. [S1]"
     },
     {
       "id": 8,
@@ -116,12 +127,13 @@
       "question": "What makes a great viral growth loop and how do you build one?",
       "context_question": null,
       "expected_abstain": false,
-      "is_abstain": true,
-      "citations_count": 0,
+      "kind": "answer",
+      "is_abstain": false,
+      "citations_count": 1,
       "citations_valid": true,
-      "distinct_episodes": 0,
-      "latency_ms": 28351.82,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "distinct_episodes": 1,
+      "latency_ms": 8444.59,
+      "response_snippet": "- Focus on acquiring users through high-quality content and engaging experiences [S1].\n- Prioritize user acquisition over product development until you have a solid user base [S1].\n- Use A/B testing t"
     },
     {
       "id": 9,
@@ -130,11 +142,12 @@
       "question": "How do top companies design and run growth experimentation programs?",
       "context_question": null,
       "expected_abstain": false,
+      "kind": "abstain",
       "is_abstain": true,
       "citations_count": 0,
       "citations_valid": true,
       "distinct_episodes": 0,
-      "latency_ms": 881.07,
+      "latency_ms": 511.01,
       "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
     },
     {
@@ -144,12 +157,13 @@
       "question": "What is customer acquisition cost (CAC) payback and why does it matter?",
       "context_question": null,
       "expected_abstain": false,
-      "is_abstain": false,
-      "citations_count": 2,
+      "kind": "abstain",
+      "is_abstain": true,
+      "citations_count": 0,
       "citations_valid": true,
-      "distinct_episodes": 1,
-      "latency_ms": 46843.15,
-      "response_snippet": "Customer Acquisition Cost (CAC) payback is a metric used to evaluate the efficiency of customer acquisition efforts. It measures how many months of profit a customer generates before they pay for the "
+      "distinct_episodes": 0,
+      "latency_ms": 12582.6,
+      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
     },
     {
       "id": 11,
@@ -158,12 +172,13 @@
       "question": "How do you decide what features to build next on a product roadmap?",
       "context_question": null,
       "expected_abstain": false,
-      "is_abstain": true,
-      "citations_count": 0,
+      "kind": "answer",
+      "is_abstain": false,
+      "citations_count": 2,
       "citations_valid": true,
-      "distinct_episodes": 0,
-      "latency_ms": 93293.47,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "distinct_episodes": 2,
+      "latency_ms": 17528.39,
+      "response_snippet": "Deciding what features to build next involves understanding user needs and pain points. Prioritize features that solve critical problems or enhance user experience [S3]. Focus onboarding on completing"
     },
     {
       "id": 12,
@@ -172,12 +187,13 @@
       "question": "What did Brian Chesky share about founder mode and design at Airbnb?",
       "context_question": null,
       "expected_abstain": false,
-      "is_abstain": false,
-      "citations_count": 1,
+      "kind": "abstain",
+      "is_abstain": true,
+      "citations_count": 0,
       "citations_valid": true,
-      "distinct_episodes": 1,
-      "latency_ms": 36907.19,
-      "response_snippet": "The provided sources do not contain information directly about Brian Chesky sharing insights about \"founder mode\" or design at Airbnb. They focus on Brian Chesky's background in industrial design and "
+      "distinct_episodes": 0,
+      "latency_ms": 7223.3,
+      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
     },
     {
       "id": 13,
@@ -186,12 +202,13 @@
       "question": "What about for enterprise B2B?",
       "context_question": "How should startups approach product-led growth according to Elena Verna?",
       "expected_abstain": false,
-      "is_abstain": false,
-      "citations_count": 1,
+      "kind": "abstain",
+      "is_abstain": true,
+      "citations_count": 0,
       "citations_valid": true,
-      "distinct_episodes": 1,
-      "latency_ms": 123105.01,
-      "response_snippet": "According to Elena Verna, for enterprise B2B, startups should consider adding product-led sales (PLS) to their existing sales-led growth (SLG) approach. This can be done in two ways: either by adding "
+      "distinct_episodes": 0,
+      "latency_ms": 33191.18,
+      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
     },
     {
       "id": 14,
@@ -200,12 +217,13 @@
       "question": "Did they test that with consumer apps?",
       "context_question": "What metrics define user retention according to Casey Winters?",
       "expected_abstain": false,
-      "is_abstain": false,
-      "citations_count": 1,
+      "kind": "abstain",
+      "is_abstain": true,
+      "citations_count": 0,
       "citations_valid": true,
-      "distinct_episodes": 1,
-      "latency_ms": 89656.16,
-      "response_snippet": "The provided sources do not contain information about testing consumer app retention metrics. They focus on user retention for B2B SaaS businesses and the importance of user-based retention for consum"
+      "distinct_episodes": 0,
+      "latency_ms": 24533.58,
+      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
     },
     {
       "id": 15,
@@ -214,12 +232,13 @@
       "question": "How often should startups raise prices?",
       "context_question": "How does Lenny recommend running pricing experiments?",
       "expected_abstain": false,
-      "is_abstain": false,
-      "citations_count": 2,
+      "kind": "abstain",
+      "is_abstain": true,
+      "citations_count": 0,
       "citations_valid": true,
-      "distinct_episodes": 2,
-      "latency_ms": 71406.21,
-      "response_snippet": "Madhavan Ramanujam suggests that for AI companies, it is an ongoing journey to revisit your pricing strategy. He states that with AI, this should be done at least once every two years, but with the sc"
+      "distinct_episodes": 0,
+      "latency_ms": 14786.68,
+      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
     },
     {
       "id": 16,
@@ -228,12 +247,13 @@
       "question": "What about junior vs senior PMs?",
       "context_question": "What makes a great product manager hire according to Shreyas Doshi?",
       "expected_abstain": false,
+      "kind": "answer",
       "is_abstain": true,
-      "citations_count": 0,
+      "citations_count": 1,
       "citations_valid": true,
-      "distinct_episodes": 0,
-      "latency_ms": 24261.21,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "distinct_episodes": 1,
+      "latency_ms": 23829.9,
+      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast. [S1]"
     },
     {
       "id": 17,
@@ -242,12 +262,13 @@
       "question": "What is the recipe for chocolate chip cookies?",
       "context_question": null,
       "expected_abstain": true,
-      "is_abstain": true,
+      "kind": "general",
+      "is_abstain": false,
       "citations_count": 0,
       "citations_valid": true,
       "distinct_episodes": 0,
-      "latency_ms": 35971.01,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "latency_ms": 26394.48,
+      "response_snippet": "Here's a basic recipe for chocolate chip cookies:\n\nIngredients:\n- 2 and 1/4 cups all-purpose flour\n- 1 tsp baking soda\n- 1/2 tsp salt\n- 1 cup unsalted butter, softened\n- 3/4 cup white sugar\n- 3/4 cup "
     },
     {
       "id": 18,
@@ -256,12 +277,13 @@
       "question": "Who won the 2024 NBA finals?",
       "context_question": null,
       "expected_abstain": true,
-      "is_abstain": true,
+      "kind": "general",
+      "is_abstain": false,
       "citations_count": 0,
       "citations_valid": true,
       "distinct_episodes": 0,
-      "latency_ms": 51685.8,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "latency_ms": 3373.63,
+      "response_snippet": "I don't have information on future events like the 2024 NBA Finals because they haven't happened yet. My knowledge only goes up to current data."
     },
     {
       "id": 19,
@@ -270,12 +292,13 @@
       "question": "How do I configure Kubernetes ingress with Nginx?",
       "context_question": null,
       "expected_abstain": true,
-      "is_abstain": true,
+      "kind": "general",
+      "is_abstain": false,
       "citations_count": 0,
       "citations_valid": true,
       "distinct_episodes": 0,
-      "latency_ms": 61421.77,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "latency_ms": 24564.63,
+      "response_snippet": "To configure Kubernetes Ingress with Nginx, you can use the Nginx Ingress Controller. Here are the general steps:\n\n1. **Deploy the Nginx Ingress Controller**: You can deploy the Nginx Ingress Controll"
     },
     {
       "id": 20,
@@ -284,12 +307,13 @@
       "question": "What is quantum computing and how do qubits work?",
       "context_question": null,
       "expected_abstain": true,
-      "is_abstain": true,
+      "kind": "general",
+      "is_abstain": false,
       "citations_count": 0,
       "citations_valid": true,
       "distinct_episodes": 0,
-      "latency_ms": 64091.76,
-      "response_snippet": "The transcripts I have don't support an answer to this. Try asking about a product, growth, or career topic covered on Lenny's Podcast."
+      "latency_ms": 18025.7,
+      "response_snippet": "Quantum computing is a type of computing where the basic unit of information is a quantum bit, or qubit. Unlike classical bits, which are either 0 or 1, qubits can exist in a state of 0, 1, or any qua"
     }
   ]
 }

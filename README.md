@@ -204,12 +204,14 @@ docker compose exec -T backend python -m tests.eval.qa_eval
 ===================================================================================================================
 EVALUATION SUMMARY:
   • Total Questions:       20
-  • Answer Rate:           68.75% (11/16 answered; remaining abstained due to strict grounding threshold)
-  • Abstain Precision:     4/4 unanswerable questions correctly abstained without hallucinating citations
-  • Citation Validity:     8/8 answered questions contained verified source citations [S1], [S2]
-  • Source Coverage:       1.38 distinct episodes cited per answer
-  • Latency P50:           61,421.77 ms (baseline; improved to ~23s with Part 3B prompt shrinking)
-  • Latency P90:           102,478.72 ms
+  • Answer Rate:           56.2% (9/16 answered)
+  • Abstain Precision:     100.0% (4/4 passed)
+    - Grounded Abstain:    0
+    - General Fallback:    4
+  • Citation Validity:     100.0% (9/9 validated over kind='answer')
+  • Source Coverage:       1.22 episodes / answer
+  • Latency P50:           17528.39 ms
+  • Latency P90:           26394.48 ms
 ===================================================================================================================
 Results saved to backend/tests/eval/results.json
 ```
@@ -222,7 +224,7 @@ Run the comprehensive pytest test suite (isolated in temporary test database):
 ```bash
 docker compose exec -T backend pytest -v
 ```
-**Results**: `235 passed, 1 warning`.
+**Results**: `255 passed, 1 warning`.
 
 Test coverage spans:
 - **Routing & Intent Classification**: 115 parametrized test cases (`app/tests/test_router.py`).

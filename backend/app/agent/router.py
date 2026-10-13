@@ -57,7 +57,17 @@ def classify_intent(content: str, explicit_intent: str | None = None) -> str:
     return "qa"
 
 
-def classify_route(content: str, explicit_intent: str | None = None) -> str:
+_FOLLOW_UP_STARTS_RE = re.compile(
+    r"^(what\s+about|how\s+about|did\s+they|and\s+|how\s+often)\b",
+    re.IGNORECASE,
+)
+
+
+def classify_route(
+    content: str,
+    explicit_intent: str | None = None,
+    prev_route: str | None = None,
+) -> str:
     """Classify query into execution route:
     'smalltalk', 'essay', 'artifact', 'grounded', or 'general'.
     """
@@ -86,6 +96,11 @@ def classify_route(content: str, explicit_intent: str | None = None) -> str:
 
     if _DOMAIN_KEYWORDS.search(text_lower):
         return "grounded"
+
+    if prev_route == "grounded":
+        words = text.split()
+        if len(words) <= 12 or _FOLLOW_UP_STARTS_RE.search(text):
+            return "grounded"
 
     # Non-domain queries (cooking, sports, code, trivia, math) route to general
     return "general"

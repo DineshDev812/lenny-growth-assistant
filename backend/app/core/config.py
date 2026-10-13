@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = Field(default=60, ge=0)
     retrieval_min_score: float = Field(default=0.03, ge=0.0)
     retrieval_fallback_min_score: float = Field(default=0.12, ge=0.0)
-    retrieval_min_answer_score: float = Field(default=0.08, ge=0.0)
+    retrieval_min_answer_score: float = Field(default=0.05, ge=0.0)
     grounding_strict: bool = Field(default=True)
     context_token_budget: int = Field(default=3000, ge=500)
     chat_history_messages: int = Field(default=6, ge=0)

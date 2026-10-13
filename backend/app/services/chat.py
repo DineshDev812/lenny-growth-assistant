@@ -212,8 +212,6 @@ class ChatService:
         artifact_format: str | None = None,
     ) -> SendMessageResponse:
         settings = get_settings()
-        route = classify_route(content, explicit_intent=explicit_intent)
-        intent = explicit_intent or ("general" if route == "general" else classify_intent(content, explicit_intent))
 
         # -------------------------------------------------------------
         # Phase A (own session, commit): Verify ownership & save user message
@@ -224,6 +222,21 @@ class ChatService:
             if session is None:
                 raise NotFoundError("Session not found.")
             is_first = len(session.messages) == 0
+
+            prev_user_msg = next((m for m in reversed(session.messages) if m.role == "user"), None)
+            prev_route = None
+            if prev_user_msg:
+                if prev_user_msg.intent == "general" or is_smalltalk(prev_user_msg.content):
+                    prev_route = "general" if prev_user_msg.intent == "general" else "smalltalk"
+                elif prev_user_msg.intent in ("essay", "artifact"):
+                    prev_route = prev_user_msg.intent
+                elif prev_user_msg.intent == "qa" or classify_route(prev_user_msg.content) == "grounded":
+                    prev_route = "grounded"
+                else:
+                    prev_route = classify_route(prev_user_msg.content)
+
+            route = classify_route(content, explicit_intent=explicit_intent, prev_route=prev_route)
+            intent = explicit_intent or ("general" if route == "general" else classify_intent(content, explicit_intent))
 
             msg_repo = MessageRepository(db_a)
             user_msg = await msg_repo.create(
@@ -540,8 +553,6 @@ class ChatService:
         artifact_format: str | None = None,
     ) -> AsyncIterator[str]:
         settings = get_settings()
-        route = classify_route(content, explicit_intent=explicit_intent)
-        intent = explicit_intent or ("general" if route == "general" else classify_intent(content, explicit_intent))
 
         # -------------------------------------------------------------
         # Phase A (own session, commit): Verify ownership & save user message
@@ -552,6 +563,21 @@ class ChatService:
             if session is None:
                 raise NotFoundError("Session not found.")
             is_first = len(session.messages) == 0
+
+            prev_user_msg = next((m for m in reversed(session.messages) if m.role == "user"), None)
+            prev_route = None
+            if prev_user_msg:
+                if prev_user_msg.intent == "general" or is_smalltalk(prev_user_msg.content):
+                    prev_route = "general" if prev_user_msg.intent == "general" else "smalltalk"
+                elif prev_user_msg.intent in ("essay", "artifact"):
+                    prev_route = prev_user_msg.intent
+                elif prev_user_msg.intent == "qa" or classify_route(prev_user_msg.content) == "grounded":
+                    prev_route = "grounded"
+                else:
+                    prev_route = classify_route(prev_user_msg.content)
+
+            route = classify_route(content, explicit_intent=explicit_intent, prev_route=prev_route)
+            intent = explicit_intent or ("general" if route == "general" else classify_intent(content, explicit_intent))
 
             msg_repo = MessageRepository(db_a)
             user_msg = await msg_repo.create(

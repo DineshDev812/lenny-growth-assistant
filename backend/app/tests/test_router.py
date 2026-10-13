@@ -165,3 +165,50 @@ def test_classify_route(
     expected_route: str,
 ) -> None:
     assert classify_route(content, explicit_intent) == expected_route
+
+
+@pytest.mark.parametrize(
+    ("content", "prev_route", "expected_route"),
+    [
+        # Short non-domain queries (<= 12 words) follow grounded route
+        ("Can you elaborate on that?", "grounded", "grounded"),
+        ("What does that mean in practice?", "grounded", "grounded"),
+        ("Are there any examples?", "grounded", "grounded"),
+        # Starting with conversational phrases
+        ("What about for enterprise B2B?", "grounded", "grounded"),
+        ("How about early stage startups?", "grounded", "grounded"),
+        ("Did they test that with consumer apps?", "grounded", "grounded"),
+        ("And how often should we review this?", "grounded", "grounded"),
+        ("How often should founders do this?", "grounded", "grounded"),
+        # Long query (> 12 words) starting with follow-up phrase
+        (
+            "What about the case where an enterprise team with fifty engineers is migrating to a brand new service architecture?",
+            "grounded",
+            "grounded",
+        ),
+        # Long non-domain query (> 12 words) NOT starting with follow-up phrase routes to general even if prev was grounded
+        (
+            "Explain the historical background of the Treaty of Versailles signed in nineteen nineteen between European nations in detail.",
+            "grounded",
+            "general",
+        ),
+        # Smalltalk takes precedence over grounded follow-up
+        ("thanks", "grounded", "smalltalk"),
+        ("thank you so much", "grounded", "smalltalk"),
+        ("hello", "grounded", "smalltalk"),
+        # Explicit intent overrides
+        ("What about that?", "grounded", "grounded"),
+        # When prev_route is not grounded, non-domain short queries route to general
+        ("Can you elaborate on that?", None, "general"),
+        ("Can you elaborate on that?", "general", "general"),
+        ("Did they test that with consumer apps?", None, "general"),
+        ("Did they test that with consumer apps?", "general", "general"),
+    ],
+)
+def test_classify_route_conversational_follow_up(
+    content: str,
+    prev_route: str | None,
+    expected_route: str,
+) -> None:
+    assert classify_route(content, prev_route=prev_route) == expected_route
+
