@@ -305,7 +305,7 @@ data: <json>
 #### `GET /api/artifacts/{id}`
 Fetch the full payload of a generated artifact for display in the side pane.
 - **Security**: Only the owning anonymous client may retrieve it. Other clients receive 404.
-- **Sanitization**: Any HTML content returned is pre-sanitized on the backend. The frontend iframe renders it inside an isolated sandbox (`sandbox="allow-scripts"` without `allow-same-origin`).
+- **Sanitization**: Any HTML content returned is pre-sanitized on the backend. The frontend iframe renders it inside an isolated sandbox (`sandbox=""` without `allow-same-origin` or `allow-scripts`).
 - **Response 200 OK**:
 ```json
 {

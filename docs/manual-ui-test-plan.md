@@ -101,7 +101,7 @@ This document outlines the step-by-step manual test plan to verify all user flow
   6. Verify the security callout badge appears:
      > `Isolated Sandbox: Sanitized server-side with nh3 and isolated in a sandboxed iframe.`
   7. Interact with the calculator (adjust sliders or inputs) inside the preview pane.
-  8. Inspect the DOM in DevTools: verify the iframe has `sandbox="allow-scripts"` and does **NOT** have `allow-same-origin`.
+  8. Inspect the DOM in DevTools: verify the iframe has `sandbox=""` and does **NOT** have `allow-same-origin`.
 - **Expected Result**: Interactive widget runs smoothly inside the iframe. Iframe cannot access host cookies, parent DOM, or localStorage.
 
 ---
