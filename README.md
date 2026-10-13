@@ -1,7 +1,7 @@
 # The Lenny Growth Assistant
 
-[![Tests](https://img.shields.io/badge/pytest-152%20passed%2C%200%20failed-brightgreen)](https://github.com/DineshDev812/lenny-growth-assistant)
-[![Evaluation Benchmark](https://img.shields.io/badge/eval%20benchmark-100%25%20abstain%20%7C%20100%25%20citations-brightgreen)](https://github.com/DineshDev812/lenny-growth-assistant)
+[![Tests](https://img.shields.io/badge/pytest-235%20passed-brightgreen)](https://github.com/DineshDev812/lenny-growth-assistant)
+[![Evaluation Benchmark](https://img.shields.io/badge/eval%20benchmark-8%2F16%20answered%20%7C%20verified%20citations-blue)](https://github.com/DineshDev812/lenny-growth-assistant)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg?logo=postgresql)](https://www.postgresql.org)
 [![React](https://img.shields.io/badge/React-18-61DAFB.svg?logo=react)](https://react.dev)
@@ -20,7 +20,7 @@ A full-stack, production-grade AI assistant grounded exclusively in 300+ episode
 - [Environment Variables](#environment-variables)
 - [Model Configuration (Local Ollama & Cloud Claude)](#model-configuration)
 - [Agent Skills & Claude Artifacts](#agent-skills--claude-artifacts)
-- [Evaluation Suite (20 Questions, 100% Score)](#evaluation-suite)
+- [Evaluation Suite (20 Questions)](#evaluation-suite)
 - [Running Automated Tests](#running-automated-tests)
 - [Manual UI Test Plan](#manual-ui-test-plan)
 - [Troubleshooting](#troubleshooting)
@@ -31,11 +31,11 @@ A full-stack, production-grade AI assistant grounded exclusively in 300+ episode
 
 ## Key Features
 
-1. **Strictly Grounded Q&A**: Answers are synthesized **only** from transcript excerpts. If the corpus does not cover a topic, the assistant cleanly refuses with zero hallucinations.
+1. **Strictly Grounded Q&A**: Answers are synthesized **only** from transcript excerpts. If the corpus does not cover a topic, the assistant cleanly abstains or offers to answer from general knowledge.
 2. **Deterministic Source Traceability**: Every claim carries citation tags (`[S1]`, `[S2]`) with guest names, episode titles, verbatim quotes, and **clickable YouTube deep links** (`&t=SECONDS`).
 3. **Dedicated Ship 30 for 30 Essay Skill**: A purpose-built agent skill that turns transcript insights into high-engagement essays (~1,250 words, hook, narrative progression, headings, bullets, and selective bolding).
-4. **Claude Artifacts-Style Split Pane**: Real-time rendering of generated Markdown and complete HTML/CSS tools side-by-side with the chat stream, complete with source code viewer, 1-click copy, download button, and fullscreen modal toggle.
-5. **Defense-in-Depth HTML Sandbox Isolation**: Generated untrusted HTML is sanitized server-side via Rust-powered `nh3` (stripping inline event handlers, style attributes, and untrusted schemes) and isolated in an empty `sandbox=""` browser iframe with strict Content-Security-Policy headers.
+4. **Claude Artifacts-Style Split Pane**: Real-time rendering of generated Markdown and static HTML/CSS visual layouts side-by-side with the chat stream, complete with source code viewer, 1-click copy, download button, and fullscreen modal toggle.
+5. **Defense-in-Depth HTML Sandbox Isolation**: Generated untrusted HTML is sanitized server-side via Rust-powered `nh3` (stripping script tags, inline event handlers, and untrusted schemes) and isolated in a scriptless `sandbox=""` browser iframe with strict Content-Security-Policy headers (`script-src 'none'`), ensuring no scripts are executed.
 6. **Zero Code Change Model Switching**: Switch between **local Ollama** (`qwen2.5:3b`) on host machine and **Anthropic Claude** purely via `.env`. Read-only provider badge visible in UI.
 7. **Editorial UX & Polish**: Temporal session grouping ("Today", "Yesterday", "Previous 7 Days", "Older"), inline rename, delete confirmation with cascade deletion, dark mode toggle, global shortcuts (`⌘K`/`Ctrl+K`, `Esc`), and copy response button.
 8. **Anonymous Cookie Sessions**: Zero-friction onboarding using HMAC-SHA256 signed `client_id` cookies and PostgreSQL session isolation.
@@ -179,11 +179,11 @@ Encoded in `backend/app/agent/skills/ship30/` (`SKILL.md` + `prompts.py`).
 - All arguments and examples cite specific transcript guests.
 - Output is rendered as a clean Markdown Artifact in the side pane.
 
-### 2. Interactive Sandboxed HTML Artifacts
-When a user asks for interactive calculators, frameworks, or visual widgets:
-- The assistant produces complete HTML/CSS/JS code.
-- **Backend Defense**: Cleaned using Rust's `nh3` HTML sanitizer.
-- **Frontend Defense**: Rendered inside an `<iframe sandbox="allow-scripts">` without `allow-same-origin`, preventing access to cookies or parent windows.
+#### 2. Sandboxed HTML Artifacts
+When a user asks for mockups, frameworks, or visual widgets:
+- The assistant produces static HTML/CSS code.
+- **Backend Defense**: Cleaned using Rust's `nh3` HTML sanitizer (stripping script tags, event handlers, and unsafe attributes).
+- **Frontend Defense**: Rendered inside an `<iframe sandbox="">` with strict CSP (`script-src 'none'`), completely disabling JavaScript execution.
 
 ---
 
@@ -192,7 +192,7 @@ When a user asks for interactive calculators, frameworks, or visual widgets:
 An automated 20-question evaluation suite (`backend/tests/eval/qa_eval.py` + `qa_questions.json`) validates end-to-end question answering, follow-ups, and abstention behavior against the live Ollama model on CPU:
 - **12 Answerable Growth Questions**: Topics spanning product-market fit, activation benchmarks, pricing experiments, viral loops, marketplace liquidity, unit economics, PM hiring, and founder mode across distinct episodes.
 - **4 Multi-Turn Follow-Ups**: Context-dependent queries ("What about for enterprise B2B?", "Did they test that with consumer apps?") validating conversational query enrichment.
-- **4 Unanswerable Out-of-Corpus Questions**: Control queries on cooking recipes, sports, devops/Kubernetes, and physics verifying strict abstention without hallucinations.
+- **4 Unanswerable Out-of-Corpus Questions**: Control queries on cooking recipes, sports, devops/Kubernetes, and physics verifying strict abstention without hallucinating citations.
 
 Run the evaluation suite inside the backend container:
 ```bash
@@ -205,10 +205,10 @@ docker compose exec -T backend python -m tests.eval.qa_eval
 EVALUATION SUMMARY:
   • Total Questions:       20
   • Answer Rate:           50.0% (8/16 answered; remaining abstained due to strict grounding threshold)
-  • Abstain Precision:     100.0% (4/4 unanswerable questions correctly abstained with zero hallucinations)
-  • Citation Validity:     100.0% (8/8 answered questions contained verified source citations [S1], [S2])
+  • Abstain Precision:     4/4 unanswerable questions correctly abstained without hallucinating citations
+  • Citation Validity:     8/8 answered questions contained verified source citations [S1], [S2]
   • Source Coverage:       1.38 distinct episodes cited per answer
-  • Latency P50:           61,421.77 ms (local CPU inference on 3.1B parameter model)
+  • Latency P50:           61,421.77 ms (baseline; improved to ~23s with Part 3B prompt shrinking)
   • Latency P90:           102,478.72 ms
 ===================================================================================================================
 Results saved to backend/tests/eval/results.json
@@ -222,10 +222,10 @@ Run the comprehensive pytest test suite (isolated in temporary test database):
 ```bash
 docker compose exec -T backend pytest -v
 ```
-**Results**: `152 passed, 0 failed in 54s`.
+**Results**: `235 passed, 1 warning`.
 
 Test coverage spans:
-- **Routing & Intent Classification**: 32 parametrized test cases (`tests/test_router.py`).
+- **Routing & Intent Classification**: 115 parametrized test cases (`app/tests/test_router.py`).
 - **Streaming & Multi-Turn Persistence**: Database session commits and monotonic message ordering (`tests/api/test_chat_persistence.py`).
 - **Error Mapping & Leakage Prevention**: 503/504 status codes and SSE error frames (`tests/api/test_error_mapping.py`).
 - **Grounding & Citation Normalization**: Citation regex validation, URL stripping, prompt injection defenses (`tests/services/test_grounding.py`).
@@ -257,15 +257,16 @@ A complete manual test matrix covering session isolation, streaming, inline cita
 
 1. **PostgreSQL Full-Text Search vs. Vector Embeddings**:
    - Rather than deploying an external vector DB (Milvus, Pinecone, Chroma) with heavyweight embedding models, we used PostgreSQL 16 weighted full-text search (`setweight(header, 'A') || setweight(text, 'B')`).
-   - *Result*: 5.5ms query latency, zero cold-start embedding generation overhead, exact quote and guest name precision, zero vector DB operational cost.
+   - *Result*: Fast in-process PostgreSQL ts_rank_cd retrieval, zero cold-start embedding generation overhead, exact quote and guest name precision, zero vector DB operational cost.
 2. **Deterministic Sequence Ordering**:
-   - Multiple messages inserted in the same transaction get identical timestamps. We added an explicit PostgreSQL `Identity(start=1)` monotonically increasing `seq` column, ensuring 100% deterministic message rendering: `order_by(Message.created_at, Message.seq)`.
+   - Multiple messages inserted in the same transaction get identical timestamps. We added an explicit PostgreSQL `Identity(start=1)` monotonically increasing `seq` column, ensuring deterministic message rendering: `order_by(Message.created_at, Message.seq)`.
 3. **Artifact Security**:
-   - Defense-in-depth: untrusted HTML is sanitized server-side with `nh3` before storage and isolated in a sandboxed iframe with scripts enabled but `allow-same-origin` stripped.
+   - Defense-in-depth: untrusted HTML is sanitized server-side with `nh3` before storage and isolated in a scriptless sandboxed iframe (`sandbox=""` with `script-src 'none'`), ensuring no scripts can execute.
 
 ---
 
 ## Demo Video
 
-- **Video Walkthrough (YouTube)**: *[Demo Video Link](https://youtu.be/placeholder)*
+- **Video Walkthrough (YouTube)**: TODO: Video link
 - **Demo Script & Guide**: See [`docs/video-script.md`](docs/video-script.md).
+
