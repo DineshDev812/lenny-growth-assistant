@@ -124,11 +124,70 @@ def escape_chunk_text(text: str) -> str:
     return text.replace("<", "&lt;").replace(">", "&gt;")
 
 
+def escape_attr(s: str | None) -> str:
+    """Escape quotes and angle brackets for XML attributes."""
+    if not s:
+        return ""
+    return (
+        s.replace("&", "&amp;")
+        .replace('"', "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'])")
+
+
+def extract_evidence_snippet(text: str, query: str = "", max_words: int = 120) -> str:
+    """Extract the best 2-3 consecutive sentences (60-120 words) around highest density of query terms."""
+    if not text.strip():
+        return ""
+
+    sentences = [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
+    if not sentences:
+        sentences = [text.strip()]
+
+    if len(sentences) <= 3:
+        words = " ".join(sentences).split()
+        return " ".join(words[:max_words])
+
+    query_tokens = {w.lower() for w in re.findall(r"\b[a-zA-Z0-9]{3,}\b", query)}
+
+    best_score = -1.0
+    best_window = (0, min(3, len(sentences)))
+
+    for i in range(len(sentences)):
+        for w_len in (2, 3):
+            if i + w_len > len(sentences):
+                continue
+            window_sentences = sentences[i : i + w_len]
+            window_text = " ".join(window_sentences)
+            window_words = window_text.split()
+
+            window_tokens = set(re.findall(r"\b[a-zA-Z0-9]{3,}\b", window_text.lower()))
+            matches = len(query_tokens & window_tokens)
+
+            length_bonus = 0.5 if 50 <= len(window_words) <= 130 else 0.0
+            score = matches + length_bonus
+
+            if score > best_score:
+                best_score = score
+                best_window = (i, i + w_len)
+
+    chosen = sentences[best_window[0] : best_window[1]]
+    words = " ".join(chosen).split()
+    return " ".join(words[:max_words])
+
+
 def format_source_context(
     chunks: list[RetrievedChunk],
     *,
     token_budget: int = 3000,
     max_chunks_per_episode: int = 2,
+    max_snippets: int = 3,
+    query: str = "",
+    intent: str = "qa",
 ) -> tuple[list[Source], str]:
     """Filter chunks by budget and per-episode cap, formatting into safe delimited sources.
 
@@ -141,15 +200,21 @@ def format_source_context(
 
     idx = 1
     for chunk in chunks:
-        # At most 2 chunks per episode
+        if len(sources) >= max_snippets:
+            break
         ep_count = episode_counts.get(chunk.episode_id, 0)
         if ep_count >= max_chunks_per_episode:
             continue
 
-        # Rough token estimate: ~4 chars per token
-        chunk_token_est = len(chunk.text) // 4 + 50
+        if intent == "qa":
+            snippet_text = extract_evidence_snippet(chunk.text, query=query, max_words=120)
+        elif intent == "essay":
+            snippet_text = extract_evidence_snippet(chunk.text, query=query, max_words=180)
+        else:
+            snippet_text = chunk.text
+
+        chunk_token_est = len(snippet_text) // 4 + 30
         if estimated_tokens_used + chunk_token_est > token_budget and sources:
-            # Budget exhausted, stop adding chunks
             break
 
         episode_counts[chunk.episode_id] = ep_count + 1
@@ -158,7 +223,7 @@ def format_source_context(
         sid = f"S{idx}"
         idx += 1
 
-        snippet = " ".join(chunk.text.split())[:300]
+        source_snippet = " ".join(snippet_text.split())[:240]
         s = Source(
             id=sid,
             chunk_id=chunk.chunk_id,
@@ -171,15 +236,17 @@ def format_source_context(
             youtube_deep_link=chunk.youtube_deep_link or chunk.youtube_url,
             start_ts=chunk.start_timestamp,
             start_seconds=chunk.start_seconds,
-            snippet=snippet,
+            snippet=source_snippet,
         )
         sources.append(s)
 
-        escaped = escape_chunk_text(chunk.text)
-        time_str = chunk.start_timestamp or "N/A"
+        escaped_snippet = escape_chunk_text(snippet_text)
+        ep_attr = escape_attr(chunk.episode_title)
+        guest_attr = escape_attr(chunk.guest)
+        time_str = escape_attr(chunk.start_timestamp or "N/A")
         xml_blocks.append(
-            f'<source id="{sid}" episode="{chunk.episode_title}" guest="{chunk.guest}" time="{time_str}">\n'
-            f"{escaped}\n"
+            f'<source id="{sid}" episode="{ep_attr}" guest="{guest_attr}" time="{time_str}">\n'
+            f"{escaped_snippet}\n"
             f"</source>"
         )
 

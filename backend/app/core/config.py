@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     model_fallback: Literal["none", "ollama", "anthropic"] = Field(default="none")
     rate_limit_per_minute: int = Field(default=20, ge=1)
     max_message_chars: int = Field(default=4000, ge=100)
+    qa_max_tokens: int = Field(default=220, ge=50)
+    general_max_tokens: int = Field(default=260, ge=50)
+    ollama_num_ctx: int = Field(default=3072, ge=512)
 
     @field_validator("anthropic_api_key", "ingest_token", mode="before")
     @classmethod

@@ -162,3 +162,30 @@ def test_format_source_context_max_two_chunks_per_episode() -> None:
     assert '<source id="S2"' in xml_context
     assert '<source id="S3"' in xml_context
     assert "chunk 3 ep 1" not in xml_context
+
+
+def test_extract_evidence_snippet_query_density() -> None:
+    from app.services.grounding import extract_evidence_snippet
+
+    text = (
+        "We started the company in 2018. The weather was nice that summer in San Francisco. "
+        "When looking at customer retention, churn rate is the most critical leading indicator of product market fit. "
+        "Cohorts that flatten out prove high retention and sustainable organic growth loops. "
+        "Afterwards we had pizza with the engineering team. Then we went home."
+    )
+    snippet = extract_evidence_snippet(text, query="retention and churn", max_words=50)
+    assert "retention" in snippet
+    assert "churn" in snippet
+    assert "pizza" not in snippet
+
+
+def test_escape_attr() -> None:
+    from app.services.grounding import escape_attr
+
+    raw = 'Episode with "Quotes" & <Brackets>'
+    escaped = escape_attr(raw)
+    assert "&quot;" in escaped
+    assert "&lt;" in escaped
+    assert "&gt;" in escaped
+    assert "&amp;" in escaped
+

@@ -287,10 +287,12 @@ class ChatService:
             # Load history excluding the user message just inserted
             prior_messages = [m for m in session.messages if m.id != user_msg_id]
             prev_user_msg = next((m for m in reversed(prior_messages) if m.role == "user"), None)
+            history_limit = 2 if intent == "qa" else settings.chat_history_messages
+            history_budget = 250 if intent == "qa" else 1000
             history_context = _prepare_history_context(
                 prior_messages,
-                max_history=settings.chat_history_messages,
-                token_budget=1000,
+                max_history=history_limit,
+                token_budget=history_budget,
             )
 
             if route != "general":
@@ -354,20 +356,38 @@ class ChatService:
             if route == "general":
                 sources = []
                 system_prompt = GENERAL_SYSTEM_PROMPT
-                gen_tokens = 260
+                gen_tokens = settings.general_max_tokens
             else:
                 sources, sources_context = format_source_context(
                     chunks,
                     token_budget=1500 if intent == "qa" else settings.context_token_budget,
-                    max_chunks_per_episode=2,
+                    max_chunks_per_episode=1 if intent == "qa" else 2,
+                    max_snippets=3 if intent == "qa" else (4 if intent == "essay" else 6),
+                    query=content,
+                    intent=intent,
                 )
                 if intent == "essay":
                     system_prompt = format_ship30_prompt(sources_context)
                 else:
                     system_prompt = format_qa_prompt(sources_context)
-                gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
+                gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else settings.qa_max_tokens)
 
             all_messages = [*history_context, LLMMessage(role="user", content=content)]
+            num_ctx = settings.ollama_num_ctx
+            prompt_tokens_est = (len(system_prompt) + sum(len(m.content) for m in all_messages)) // 4
+            if prompt_tokens_est + gen_tokens > num_ctx:
+                logger.warning(
+                    "Prompt tokens estimate (%d) + gen_tokens (%d) exceeds num_ctx (%d). Trimming evidence context.",
+                    prompt_tokens_est,
+                    gen_tokens,
+                    num_ctx,
+                )
+                overflow_chars = ((prompt_tokens_est + gen_tokens) - num_ctx) * 4 + 100
+                trimmed_sources = sources_context[:-overflow_chars] if len(sources_context) > overflow_chars else ""
+                if intent == "essay":
+                    system_prompt = format_ship30_prompt(trimmed_sources)
+                else:
+                    system_prompt = format_qa_prompt(trimmed_sources)
 
             try:
                 llm_res = await asyncio.wait_for(
@@ -635,10 +655,12 @@ class ChatService:
 
                 prior_messages = [m for m in session.messages if m.id != user_msg_id]
                 prev_user_msg = next((m for m in reversed(prior_messages) if m.role == "user"), None)
+                history_limit = 2 if intent == "qa" else settings.chat_history_messages
+                history_budget = 250 if intent == "qa" else 1000
                 history_context = _prepare_history_context(
                     prior_messages,
-                    max_history=settings.chat_history_messages,
-                    token_budget=1000,
+                    max_history=history_limit,
+                    token_budget=history_budget,
                 )
 
                 retrieval_query = build_retrieval_query(
@@ -659,7 +681,10 @@ class ChatService:
             sources, sources_context = format_source_context(
                 chunks,
                 token_budget=1500 if intent == "qa" else settings.context_token_budget,
-                max_chunks_per_episode=2,
+                max_chunks_per_episode=1 if intent == "qa" else 2,
+                max_snippets=3 if intent == "qa" else (4 if intent == "essay" else 6),
+                query=content,
+                intent=intent,
             )
             # 2. Event: sources (emit all retrieved sources to frontend)
             yield f"event: sources\ndata: {json.dumps({'sources': [s.model_dump(mode='json') for s in sources]})}\n\n"
@@ -704,15 +729,30 @@ class ChatService:
         else:
             if route == "general":
                 system_prompt = GENERAL_SYSTEM_PROMPT
-                gen_tokens = 260
+                gen_tokens = settings.general_max_tokens
             else:
                 if intent == "essay":
                     system_prompt = format_ship30_prompt(sources_context)
                 else:
                     system_prompt = format_qa_prompt(sources_context)
-                gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else 450)
+                gen_tokens = 2000 if intent == "essay" else (1200 if intent == "artifact" else settings.qa_max_tokens)
 
             all_messages = [*history_context, LLMMessage(role="user", content=content)]
+            num_ctx = settings.ollama_num_ctx
+            prompt_tokens_est = (len(system_prompt) + sum(len(m.content) for m in all_messages)) // 4
+            if prompt_tokens_est + gen_tokens > num_ctx:
+                logger.warning(
+                    "Prompt tokens estimate (%d) + gen_tokens (%d) exceeds num_ctx (%d). Trimming evidence context.",
+                    prompt_tokens_est,
+                    gen_tokens,
+                    num_ctx,
+                )
+                overflow_chars = ((prompt_tokens_est + gen_tokens) - num_ctx) * 4 + 100
+                trimmed_sources = sources_context[:-overflow_chars] if len(sources_context) > overflow_chars else ""
+                if intent == "essay":
+                    system_prompt = format_ship30_prompt(trimmed_sources)
+                else:
+                    system_prompt = format_qa_prompt(trimmed_sources)
 
             try:
                 # 3. Stream from model with first-token timeout, fallback, and total timeout

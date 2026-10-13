@@ -18,10 +18,12 @@ class OllamaProvider(BaseLLMProvider):
         base_url: str = "http://host.docker.internal:11434",
         model: str = "qwen2.5:3b",
         timeout: float = 180.0,
+        num_ctx: int = 3072,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._timeout = timeout
+        self._num_ctx = num_ctx
 
     @property
     def provider_name(self) -> str:
@@ -38,6 +40,7 @@ class OllamaProvider(BaseLLMProvider):
         stream: bool,
         temperature: float,
         max_tokens: int = 1500,
+        num_ctx: int | None = None,
     ) -> dict[str, object]:
         payload_messages = []
         if system_prompt:
@@ -45,6 +48,7 @@ class OllamaProvider(BaseLLMProvider):
         for msg in messages:
             payload_messages.append({"role": msg.role, "content": msg.content})
 
+        ctx = num_ctx if num_ctx is not None else self._num_ctx
         return {
             "model": self._model,
             "messages": payload_messages,
@@ -53,7 +57,7 @@ class OllamaProvider(BaseLLMProvider):
             "options": {
                 "temperature": temperature,
                 "num_predict": max_tokens,
-                "num_ctx": 2048,
+                "num_ctx": ctx,
             },
         }
 
@@ -64,10 +68,16 @@ class OllamaProvider(BaseLLMProvider):
         system_prompt: str | None = None,
         temperature: float = 0.2,
         max_tokens: int = 1500,
+        num_ctx: int | None = None,
     ) -> LLMResponse:
         url = f"{self._base_url}/api/chat"
         payload = self._build_payload(
-            messages, system_prompt, stream=False, temperature=temperature, max_tokens=max_tokens
+            messages,
+            system_prompt,
+            stream=False,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            num_ctx=num_ctx,
         )
         timeout = httpx.Timeout(self._timeout, connect=5.0)
 
@@ -93,10 +103,16 @@ class OllamaProvider(BaseLLMProvider):
         system_prompt: str | None = None,
         temperature: float = 0.2,
         max_tokens: int = 4096,
+        num_ctx: int | None = None,
     ) -> AsyncIterator[str]:
         url = f"{self._base_url}/api/chat"
         payload = self._build_payload(
-            messages, system_prompt, stream=True, temperature=temperature, max_tokens=max_tokens
+            messages,
+            system_prompt,
+            stream=True,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            num_ctx=num_ctx,
         )
         timeout = httpx.Timeout(self._timeout, connect=5.0)
 
