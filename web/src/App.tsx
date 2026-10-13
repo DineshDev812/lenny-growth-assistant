@@ -333,10 +333,7 @@ export const App: React.FC = () => {
                   ? {
                       ...m,
                       id: asst?.id || doneData.message_id || m.id,
-                      content:
-                        m.content && m.content.trim().length > 30 && asst?.content?.includes("don't support an answer")
-                          ? m.content
-                          : (asst?.content || m.content || ''),
+                      content: asst?.content || m.content || '',
                       sources:
                         asst?.sources && asst.sources.length > 0
                           ? asst.sources

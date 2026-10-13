@@ -251,26 +251,3 @@ def format_source_context(
         )
 
     return sources, "\n\n".join(xml_blocks)
-
-
-_REFUSAL_TRAILER_RE = re.compile(
-    r"\s*(?:\[[sS]\d+\]\s*)*"
-    r"(?:"
-    r"the\s+transcripts?\s+(?:i\s+have\s+|provided\s+)?(?:do\s+not|don't)\s+support\s+an\s+answer[^.\n]*\.?"
-    r"|"
-    r"try\s+asking\s+about\s+a\s+product[^\n]*covered\s+on\s+lenny's\s+podcast\.?"
-    r")\s*.*$",
-    re.IGNORECASE | re.DOTALL,
-)
-
-
-def strip_refusal_suffix(text: str) -> str:
-    """Strip trailing podcast disclaimers/refusal phrases if substantive answer content precedes it."""
-    cleaned = text.strip()
-    match = _REFUSAL_TRAILER_RE.search(cleaned)
-    if match and match.start() > 20:
-        remainder = cleaned[:match.start()].strip()
-        if remainder:
-            return remainder
-    return cleaned
-
