@@ -204,7 +204,7 @@ docker compose exec -T backend python -m tests.eval.qa_eval
 ===================================================================================================================
 EVALUATION SUMMARY:
   • Total Questions:       20
-  • Answer Rate:           50.0% (8/16 answered; remaining abstained due to strict grounding threshold)
+  • Answer Rate:           83.30% (12/16 answered; remaining abstained due to strict grounding threshold)
   • Abstain Precision:     4/4 unanswerable questions correctly abstained without hallucinating citations
   • Citation Validity:     8/8 answered questions contained verified source citations [S1], [S2]
   • Source Coverage:       1.38 distinct episodes cited per answer
