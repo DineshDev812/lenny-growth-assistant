@@ -269,6 +269,6 @@ A complete manual test matrix covering session isolation, streaming, inline cita
 
 ## Demo Video
 
-- **Video Walkthrough (YouTube)**: TODO: Video link
+- **Video Walkthrough (YouTube)**: [Watch the demo](https://youtu.be/LVPT7UEDIG8)
 - **Demo Script & Guide**: See [`docs/video-script.md`](docs/video-script.md).
 
