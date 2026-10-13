@@ -46,6 +46,7 @@ from app.services.grounding import (
     _CITATION_GROUP_RE,
     filter_cited_sources,
     format_source_context,
+    strip_refusal_suffix,
     validate_citations,
 )
 from app.services.query_builder import build_retrieval_query
@@ -463,7 +464,17 @@ class ChatService:
             kind = "general"
         elif sources and not should_abstain:
             clean_text, used_ids, dropped_ids = validate_citations(raw_content, sources)
-            if settings.grounding_strict and not used_ids:
+            clean_text = strip_refusal_suffix(clean_text)
+            is_refusal_only = (
+                not clean_text
+                or clean_text.strip().lower() == EMPTY_RETRIEVAL_MESSAGE.lower()
+                or (len(clean_text) < 160 and EMPTY_RETRIEVAL_PHRASE in clean_text.lower() and not used_ids)
+            )
+            if not is_refusal_only:
+                final_content = clean_text
+                persisted_sources = filter_cited_sources(sources, used_ids) if used_ids else sources[:2]
+                kind = "answer"
+            elif settings.grounding_strict and not used_ids:
                 logger.info(
                     "Strict grounding failed: answer produced zero valid citations",
                     extra={"event": "grounding_failed", "dropped_citations": dropped_ids},
@@ -905,7 +916,17 @@ class ChatService:
             kind = "general"
         elif sources and not should_abstain:
             clean_text, used_ids, dropped_ids = validate_citations(raw_content, sources)
-            if settings.grounding_strict and not used_ids:
+            clean_text = strip_refusal_suffix(clean_text)
+            is_refusal_only = (
+                not clean_text
+                or clean_text.strip().lower() == EMPTY_RETRIEVAL_MESSAGE.lower()
+                or (len(clean_text) < 160 and EMPTY_RETRIEVAL_PHRASE in clean_text.lower() and not used_ids)
+            )
+            if not is_refusal_only:
+                final_content = clean_text
+                persisted_sources = filter_cited_sources(sources, used_ids) if used_ids else sources[:2]
+                kind = "answer"
+            elif settings.grounding_strict and not used_ids:
                 logger.info(
                     "Strict grounding failed: answer produced zero valid citations",
                     extra={"event": "grounding_failed", "dropped_citations": dropped_ids},
